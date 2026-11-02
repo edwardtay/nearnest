@@ -46,6 +46,8 @@ A separate risk-feeder account can lower a venue's cap, block a venue with a rea
 
 The policy's sizes reach the chain. When the policy wants less in a venue than the contract allows, the agent's run has the risk feeder call `set_risk_cap` with the policy size (the 25% and 50% caps and the 1% exit-liquidity ceiling, in the vault's own token units). From then on a stolen agent key is held to the policy's size too. When risk eases, the agent waits and the owner decides whether to raise the cap.
 
+The full authority table, threats and the drill check behind each are in [`docs/threat-model.md`](docs/threat-model.md).
+
 ### What if
 
 [`agent/scenarios.mjs`](agent/scenarios.mjs) changes the live inputs the way a real event would and reruns the unchanged policy and planner. The page shows the verdicts and plans side by side (`/api/scenario?id=usdc-depeg`). `run-agent.mjs --scenario <id>` makes the vault respond for real on testnet, and `owner-unblock.mjs` reopens the venue afterwards.
