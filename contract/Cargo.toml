@@ -1,0 +1,25 @@
+[package]
+name = "nearnest-vault"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+resolver = "3"
+license = "MIT"
+description = "NEARnest vault: a yield agent's policy wallet on NEAR"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.5"
+
+[dev-dependencies]
+near-sdk = { version = "5.5", features = ["unit-testing"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
