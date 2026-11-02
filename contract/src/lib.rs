@@ -61,6 +61,10 @@ pub struct Venue {
     pub enabled: bool,
     /// Set by the risk feeder or owner. Blocked venues accept withdrawals only.
     pub blocked_reason: Option<String>,
+    /// Lending venues that count balances in internal units (Rhea Lend uses token
+    /// decimals + 12) need the withdraw amount scaled up by this many decimals.
+    #[serde(default)]
+    pub extra_decimals: u8,
 }
 
 #[near(serializers = [json, borsh])]
@@ -108,6 +112,13 @@ pub struct Vault {
     last_move_ns: u64,
     day_start_ns: u64,
     moves_today: u32,
+}
+
+/// Token units to a venue's internal units.
+pub fn scale_up(amount: u128, extra_decimals: u8) -> u128 {
+    amount
+        .checked_mul(10u128.pow(extra_decimals as u32))
+        .unwrap_or_else(|| env::panic_str("amount overflows venue units"))
 }
 
 fn emit(event: &str, data: serde_json::Value) {
@@ -213,7 +224,7 @@ impl Vault {
         let call = match venue.kind {
             VenueKind::LendingFt => Promise::new(venue.contract.clone()).function_call(
                 "execute",
-                json!({"actions": [{"Withdraw": {"token_id": venue.token, "max_amount": U128(amount)}}]})
+                json!({"actions": [{"Withdraw": {"token_id": venue.token, "max_amount": U128(scale_up(amount, venue.extra_decimals))}}]})
                     .to_string()
                     .into_bytes(),
                 ONE_YOCTO,
@@ -307,6 +318,7 @@ impl Vault {
     pub fn add_venue(&mut self, venue_id: String, venue: Venue) {
         self.assert_owner();
         require!(venue_id.len() <= 64, "venue id too long");
+        require!(venue.extra_decimals <= 24, "extra_decimals too large");
         if venue.kind == VenueKind::LiquidStake {
             require!(venue.token == NATIVE, "staking venue takes native NEAR");
         } else {

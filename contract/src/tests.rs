@@ -51,6 +51,7 @@ fn setup() -> Vault {
             max_alloc: U128(50 * UNIT),
             enabled: true,
             blocked_reason: None,
+            extra_decimals: 12,
         },
     );
     v.set_max_move(USDC.into(), U128(20 * UNIT));
@@ -184,6 +185,7 @@ fn agent_cannot_add_a_venue() {
             max_alloc: U128(u128::MAX),
             enabled: true,
             blocked_reason: None,
+            extra_decimals: 12,
         },
     );
 }
@@ -205,4 +207,11 @@ fn feeder_cannot_unpause() {
     ctx(FEEDER, other_pk(), 5_000);
     v.pause();
     v.unpause();
+}
+
+#[test]
+fn rhea_withdraw_amount_is_scaled_to_internal_units() {
+    // 5 USDC (6 decimals) is 5e18 in Rhea Lend's internal 18-decimal units.
+    assert_eq!(scale_up(5 * UNIT, 12), 5_000_000_000_000_000_000);
+    assert_eq!(scale_up(7, 0), 7);
 }

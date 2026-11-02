@@ -1,0 +1,51 @@
+[
+  {
+    "id": "rhea-usdc",
+    "label": "Rhea Lend USDC",
+    "kind": "LendingFt",
+    "contract": "contract.main.burrow.near",
+    "token": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "symbol": "USDC",
+    "decimals": 6,
+    "extra_decimals": 12,
+    "protocol": "Rhea Lend",
+    "price_id": "coingecko:usd-coin"
+  },
+  {
+    "id": "rhea-usdt",
+    "label": "Rhea Lend USDt",
+    "kind": "LendingFt",
+    "contract": "contract.main.burrow.near",
+    "token": "usdt.tether-token.near",
+    "symbol": "USDt",
+    "decimals": 6,
+    "extra_decimals": 12,
+    "protocol": "Rhea Lend",
+    "price_id": "coingecko:tether"
+  },
+  {
+    "id": "linear",
+    "label": "LiNEAR staking",
+    "kind": "LiquidStake",
+    "contract": "linear-protocol.near",
+    "token": "near",
+    "symbol": "NEAR",
+    "decimals": 24,
+    "extra_decimals": 0,
+    "protocol": "LiNEAR",
+    "price_method": "ft_price"
+  },
+  {
+    "id": "rnear",
+    "label": "Rhea rNEAR staking",
+    "kind": "LiquidStake",
+    "contract": "lst.rhealab.near",
+    "token": "near",
+    "symbol": "NEAR",
+    "decimals": 24,
+    "extra_decimals": 0,
+    "protocol": "Rhea LST",
+    "related_protocols": ["Rhea Lend"],
+    "price_method": "ft_price"
+  }
+]
