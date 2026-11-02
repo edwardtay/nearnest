@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Compromised-agent drill. Holds the REAL agent key and tries to steal or misuse the
-// vault's money, then makes one legitimate move. Every attempt is recorded with its
+// vault's money; then the risk feeder and owner run the response: on-chain risk cap,
+// block, kill switch, exit without the agent, owner restore. Every attempt is recorded with its
 // on-chain evidence to ../demo/attack-<net>.json (no secrets in that file).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,6 +17,7 @@ const feeder = await nc.account(s.feeder);
 const owner = await nc.account(s.owner);
 const ex = NET[net].explorer;
 const results = [];
+const ACTOR = {"feeder-blocks": "feeder", "feeder-unblock": "feeder", "feeder-raises-cap": "feeder", "kill-switch": "feeder", "guardian-exit": "feeder", "owner-restores-key": "owner", "owner-unblocks": "owner"};
 
 function failureText(o) {
   const all = [o.status, ...o.receipts_outcome.map((r) => r.outcome.status)];
@@ -33,6 +35,7 @@ async function attempt(name, intent, expect, fn, why) {
     // Rejected before reaching the chain: the access key itself forbids the action.
     rec = { ...rec, outcome: 'rejected', reason: (e.type ? `${e.type}: ` : '') + String(e.message).slice(0, 300), tx: null };
   }
+  rec.actor = ACTOR[name] || 'agent';
   rec.pass = rec.outcome === expect && (!why || why.test(rec.reason || ''));
   if (why) rec.expect_reason = String(why);
   results.push(rec);
@@ -64,19 +67,30 @@ await attempt('unknown-venue', 'Supply into a venue the owner never approved', '
   () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'attacker-pool', amount: usdc(10) })]), /unknown venue attacker-pool/);
 await attempt('over-cap', 'Supply 25 USDC when the per-move cap is 20', 'rejected',
   () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(25) })]), /exceeds per-move cap/);
-await attempt('legit-supply', 'Supply 10 USDC to the approved lending venue', 'executed',
-  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(10) })]));
-await attempt('cooldown', 'Supply again straight away', 'rejected',
-  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(5) })]), /cooldown/);
+await attempt('exit', 'Withdraw 10 USDC from the venue back to the vault', 'executed',
+  () => send(agent, s.vault, [fc('agent_withdraw', { venue_id: 'burrow-usdc', amount: usdc(10) })]));
+await attempt('legit-supply', 'Supply 5 USDC to the approved lending venue', 'executed',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(5) })]));
+await attempt('over-risk-cap', 'Supply 10 USDC more, past the 25 USDC risk cap the feeder set from the policy', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(10) })]), /would exceed risk cap/);
+await attempt('cooldown', 'Supply 1 USDC again straight away', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(1) })]), /cooldown/);
+await attempt('feeder-raises-cap', 'Risk feeder tries to raise the risk cap to 50 USDC', 'rejected',
+  () => send(feeder, s.vault, [fc('set_risk_cap', { venue_id: 'burrow-usdc', cap: usdc(50) })]), /can only lower the cap/);
 await attempt('feeder-blocks', 'Risk feeder blocks the venue with a reason', 'executed',
   () => send(feeder, s.vault, [fc('block_venue', { venue_id: 'burrow-usdc', reason: 'drill: venue exploited via spot price manipulation' })]));
 await attempt('supply-blocked', 'Supply into the blocked venue', 'rejected',
-  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(5) })]), /venue blocked/);
-await attempt('exit-blocked', 'Withdraw from the blocked venue back to the vault', 'executed',
-  () => send(agent, s.vault, [fc('agent_withdraw', { venue_id: 'burrow-usdc', amount: usdc(10) })]));
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(1) })]), /venue blocked/);
+await attempt('kill-switch', 'Risk feeder deletes the agent key from the vault', 'executed',
+  () => send(feeder, s.vault, [fc('remove_agent_key', {})]));
+await attempt('dead-key', 'The removed agent key tries to withdraw', 'rejected',
+  () => send(agent, s.vault, [fc('agent_withdraw', { venue_id: 'burrow-usdc', amount: usdc(1) })]), /access ?key|AccessKey|no matching key|does not exist/i);
+await attempt('guardian-exit', 'Risk feeder pulls 5 USDC out of the blocked venue, with no agent key', 'executed',
+  () => send(feeder, s.vault, [fc('guardian_exit', { venue_id: 'burrow-usdc', amount: usdc(5) })]));
 await attempt('feeder-unblock', 'Risk feeder tries to unblock (owner only)', 'rejected',
   () => send(feeder, s.vault, [fc('unblock_venue', { venue_id: 'burrow-usdc' })]), /owner only/);
-
+await attempt('owner-restores-key', 'Owner adds the agent key back', 'executed',
+  () => send(owner, s.vault, [fc('add_agent_key', { allowance: NEAR(0.5).toString() })]));
 await attempt('owner-unblocks', 'Owner reviews and unblocks the venue', 'executed',
   () => send(owner, s.vault, [fc('unblock_venue', { venue_id: 'burrow-usdc' })]));
 

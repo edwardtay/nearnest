@@ -49,6 +49,12 @@ async function vaultSnapshot(net) {
   for (const t of [...new Set(venues.map((v) => v.venue.token).filter((t) => t !== 'near'))]) {
     balances[t] = await view(net, t, 'ft_balance_of', { account_id: dep.vault }).catch(() => null);
   }
+  // Unstaked NEAR is claimable once the staking venue says so.
+  for (const v of venues) {
+    if (v.venue.kind === 'LiquidStake' && BigInt(v.unbonding ?? 0) > 0n) {
+      v.claimable = !!(await view(net, v.venue.contract, 'get_account', { account_id: dep.vault }).catch(() => null))?.can_withdraw;
+    }
+  }
   const lending = {};
   for (const c of [...new Set(venues.filter((v) => v.venue.kind === 'LendingFt').map((v) => v.venue.contract))]) {
     lending[c] = await view(net, c, 'get_account', { account_id: dep.vault }).catch(() => null);

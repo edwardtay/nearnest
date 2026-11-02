@@ -10,7 +10,7 @@ Live page: https://nearnest.web3wagmi.com
 2. **See the vault on chain.** Open [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) and its access keys. It has one key, a function-call key limited to `agent_supply`, `agent_withdraw` and `agent_claim_unstaked`. There is no full-access key.
 3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction, each with the policy reasons recorded at the time.
 4. **Ask "what if".** The What if view applies one event to the live mainnet read (USDC at $0.991, a fresh Rhea or LiNEAR exploit, a drained USDC pool, or the April hack ageing out) and runs the same policy and planner against the vault. For the depeg it also shows the recorded testnet response: the risk feeder blocked Burrow USDC, the agent key pulled the 12.5 USDC out, the owner reopened the venue and the agent went back in.
-5. **See a stolen key fail.** The Drill view runs 12 checks with the real keys. 8 theft or abuse attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a supply into a blocked venue, and the risk feeder trying to unblock. The 4 permitted operations go through: a normal supply, the feeder's block, the exit from the blocked venue and the owner's unblock.
+5. **See a stolen key fail.** The Drill view runs 18 checks with the real keys. 11 abuse attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a supply past the on-chain risk cap, a move inside the cooldown, a supply into a blocked venue, the removed agent key, and the risk feeder trying to raise the cap or unblock. 7 permitted operations go through: an exit and a normal supply by the agent; the feeder's block, key removal and exit without the agent; the owner restoring the key and reopening the venue.
 
 To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
 
@@ -24,14 +24,15 @@ To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set
  hacks, stablecoin prices        run-agent.mjs sizes and   call only  venue cap, cooldown, daily
                                  orders the moves                     limit, then calls the venue
                                          │
-                                         └── risk feeder key ───────▶ block_venue(reason), pause,
-                                                                      remove_agent_key
+                                         └── risk feeder key ───────▶ set_risk_cap (lower only),
+                                                                      block_venue(reason), pause,
+                                                                      remove_agent_key, guardian_exit
 ```
 
 Three layers, each one narrower than the last:
 
 1. **NEAR access keys.** The agent's key is a function-call key on the vault account with a gas allowance. NEAR rejects a transfer, a deposit, or any other method before the transaction runs.
-2. **The vault contract** (`contract/src/lib.rs`, Rust, near-sdk 5). It only sends funds to venues the owner approved, in amounts under the per-move and per-venue caps, with a cooldown and a daily move limit. Withdrawals are always allowed, even from a blocked venue or a paused vault, so leaving risk is never delayed. Only the owner can withdraw from the vault, and only to the owner.
+2. **The vault contract** (`contract/src/lib.rs`, Rust, near-sdk 5). It only sends funds to venues the owner approved, in amounts under the per-move and per-venue caps, with a cooldown and a daily move limit. The vault's rules never stop an exit request, even from a blocked venue or a paused vault; the venue's own liquidity and LiNEAR's unbonding delay still apply. After every exit and claim the vault reads its holding back from the venue's `get_account`, so its books follow the venue (interest included), and LiNEAR NEAR that is unbonding stays counted against the venue cap until it is claimed. Only the owner can withdraw from the vault, and only to the owner.
 3. **The off-chain policy** (`agent/policy.mjs`). It adds what the chain cannot see:
    - an exploit in the last 90 days blocks a venue
    - an exploit in the last 365 days caps it at 25% (funds not returned) or 50% (returned); this covers protocols a venue depends on
@@ -41,9 +42,9 @@ Three layers, each one narrower than the last:
    - yield counts the base rate; token rewards are flagged and left out
    - incidents come from DefiLlama's hacks feed, with sourced corrections in [`agent/incident-notes.json`](agent/incident-notes.json) where the feed lags (it lists the April Rhea Lend hack with no returned funds; The Block reports about $11.2M returned or frozen)
 
-A separate risk-feeder account can block a venue with a reason, pause the vault or delete the agent key. It cannot unblock, unpause or move funds: those stay with the owner.
+A separate risk-feeder account can lower a venue's cap, block a venue with a reason, pause the vault, delete the agent key, and pull funds from a venue back into the vault (`guardian_exit`, `guardian_claim`), so the owner can recover funds after the agent key is gone. It cannot raise a cap, unblock, unpause or send funds anywhere: those stay with the owner, the same split as a Morpho vault's sentinel and curator.
 
-The two layers hold different promises. The contract's limits (approved venues, per-move cap, venue cap, cooldown, daily limit, blocks) bind anyone holding the agent key. The policy's tighter targets (the 25% and 50% caps, the 1% exit-liquidity ceiling) are followed by the honest agent; a stolen key ignoring them is still held to the contract's caps until the risk feeder blocks the venue.
+The policy's sizes reach the chain. When the policy wants less in a venue than the contract allows, the agent's run has the risk feeder call `set_risk_cap` with the policy size (the 25% and 50% caps and the 1% exit-liquidity ceiling, in the vault's own token units). From then on a stolen agent key is held to the policy's size too. When risk eases, the agent waits and the owner decides whether to raise the cap.
 
 ### What if
 
@@ -62,9 +63,9 @@ The two layers hold different promises. The contract's limits (approved venues, 
 | Who | Methods |
 |---|---|
 | Agent key (signer must be the registered key) | `agent_supply`, `agent_withdraw`, `agent_claim_unstaked` |
-| Risk feeder or owner | `block_venue`, `pause`, `remove_agent_key` |
-| Owner | `add_venue`, `set_venue_enabled`, `unblock_venue`, `set_max_move`, `set_policy`, `set_risk_feeder`, `set_agent_key`, `add_agent_key`, `unpause`, `storage_deposit_on`, `owner_withdraw`, `update_contract` |
-| Anyone | `get_vault`, `get_venues` |
+| Risk feeder or owner | `set_risk_cap` (the feeder can only lower it), `block_venue`, `pause`, `remove_agent_key`, `guardian_exit`, `guardian_claim` |
+| Owner | `add_venue`, `set_venue_enabled`, `unblock_venue`, `clear_risk_cap`, `set_max_move`, `set_policy`, `set_risk_feeder`, `set_agent_key`, `add_agent_key`, `unpause`, `storage_deposit_on`, `owner_withdraw`, `update_contract` |
+| Anyone | `sync_position` (reads the vault's holding from the venue), `get_vault`, `get_venues` |
 
 Every state change emits a NEP-297 event under the `nearnest` standard.
 
@@ -83,7 +84,7 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
-# policy, planner, scenario and contract tests (20 JS, 16 Rust)
+# policy, planner, scenario and contract tests (26 JS, 25 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -100,6 +101,7 @@ node run-agent.mjs --dry       # print the plan
 node run-agent.mjs --loop      # make the moves, waiting out the vault cooldown
 node run-agent.mjs --scenario usdc-depeg   # respond to a simulated event for real
 node owner-unblock.mjs burrow-usdc         # owner reopens the venue afterwards
+node owner-upgrade.mjs                     # owner deploys new vault code, then syncs positions
 node attack.mjs                # the compromised-key drill, writes demo/attack-testnet.json
 
 # the page
@@ -132,8 +134,8 @@ server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /ap
 
 - The vault runs on testnet. A mainnet vault needs about 4 NEAR for contract storage.
 - One vault serves one owner. Shares for several depositors are out of scope.
-- Exits from LiNEAR start an unstake; the NEAR comes back after 4 epochs and the vault does not yet track it while unbonding.
-- Withdrawals and claims are signed by the agent key. After the key is removed the owner recovers funds by adding a new agent key.
+- A Burrow withdrawal settles in a later receipt; if Burrow's transfer back failed and Burrow re-credited the vault, the next `sync_position` (callable by anyone) corrects the books.
+- Policy caps reach the chain on the agent's next run, so a stolen key has the contract's caps until then. The risk feeder holds no funds and can run on its own.
 - The policy reads incidents from DefiLlama's hacks list, so a new exploit reaches the agent when DefiLlama records it. The risk feeder exists to block faster than that.
 
 ## Built with AI

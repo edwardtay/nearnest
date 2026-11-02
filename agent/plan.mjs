@@ -20,43 +20,62 @@ export function spendableNative(acct) {
 }
 
 /**
- * @param report  buildReport() output (mainnet judgements)
- * @param venues  vault get_venues()
+ * @param report  judgeInputs() output (mainnet judgements)
+ * @param venues  vault get_venues(), optionally with `claimable` (bool) on staking venues
  * @param idle    { [token]: bigint } balance the vault holds outside venues
- * @returns steps sorted: blocks, then exits, then supplies by best base rate, then holds
+ * @returns steps sorted: blocks and cap cuts, then exits and claims, then supplies by
+ *          best base rate, then holds
  */
 export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy') {
   const steps = [];
-  for (const v of venues) {
+  const budget = { ...idle }; // supplies of the same token share one idle balance
+  const ordered = [...venues].sort((a, b) => apr(report, mirror, b) - apr(report, mirror, a));
+  for (const v of ordered) {
     const m = report.venues.find((x) => x.id === mirror[v.id]);
     if (!m) continue;
     const j = m.judgement;
     const max = BigInt(v.venue.max_alloc);
+    const cap = BigInt(v.effective_cap ?? v.venue.max_alloc);
     const pos = BigInt(v.position);
+    const unb = BigInt(v.unbonding ?? 0);
     const reasons = j.reasons.filter((r) => r.level !== 'note').map((r) => r.text);
-    const want = share(max, m.max_alloc ? Math.min(1, m.target / m.max_alloc) : 0);
+    // Policy target: the multiplier on this vault's own cap, then the exit-liquidity
+    // ceiling in this vault's token units.
+    let target = share(max, j.capMult);
+    if (m.exit_ceiling != null) target = min(target, BigInt(Math.floor(m.exit_ceiling * 10 ** (m.decimals ?? 0))));
+    const want = min(target, cap);
     const floor = share(max, MIN_MOVE_SHARE);
-    const cap = BigInt(v.max_move);
-    const base = { venue: v.id, mirrors: m.id, label: m.label, verdict: j.verdict, apr: m.live.apr_base, reasons, token: v.venue.token, have: pos, want };
+    const moveCap = BigInt(v.max_move);
+    const blocked = j.verdict === 'block' || !!v.venue.blocked_reason;
+    const base = { venue: v.id, mirrors: m.id, label: m.label, verdict: j.verdict, apr: m.live.apr_base, reasons, token: v.venue.token, have: pos, want, cap, unbonding: unb };
 
     if (j.verdict === 'block' && !v.venue.blocked_reason) {
       const why = j.reasons.find((r) => r.level === 'block')?.text || 'blocked';
       steps.push({ ...base, kind: 'block', reason: `${tag}: ${why}`.slice(0, 280), prio: 0 });
+    } else if (!blocked && target < cap && cap - target >= floor) {
+      // Put the policy's cap on chain, so a stolen agent key is held to it too.
+      steps.push({ ...base, kind: 'tighten', amount: target, prio: 0 });
     }
-    const blocked = j.verdict === 'block' || !!v.venue.blocked_reason;
+    if (v.claimable && unb >= floor) steps.push({ ...base, kind: 'claim', amount: unb, prio: 1 });
+    const exposure = pos + unb;
     // Safety exits ignore the gas-saving minimum: any position in a blocked venue leaves.
     if (pos > want && (pos - want >= floor || (blocked && pos > 0n))) {
-      steps.push({ ...base, kind: 'withdraw', amount: min(pos - want, cap), prio: 1 });
-    } else if (want > pos && want - pos >= floor && !blocked && v.venue.enabled !== false) {
-      const amt = min(min(want - pos, cap), idle[v.venue.token] ?? 0n);
-      if (amt >= floor) steps.push({ ...base, kind: 'supply', amount: amt, prio: 2 });
-      else steps.push({ ...base, kind: 'hold', note: 'waiting for idle funds', prio: 3 });
+      steps.push({ ...base, kind: 'withdraw', amount: min(pos - want, moveCap), prio: 1 });
+    } else if (want > exposure && want - exposure >= floor && !blocked && v.venue.enabled !== false) {
+      const amt = min(min(want - exposure, moveCap), budget[v.venue.token] ?? 0n);
+      if (amt >= floor) {
+        steps.push({ ...base, kind: 'supply', amount: amt, prio: 2 });
+        budget[v.venue.token] = (budget[v.venue.token] ?? 0n) - amt;
+      } else steps.push({ ...base, kind: 'hold', note: 'waiting for idle funds', prio: 3 });
     } else {
-      steps.push({ ...base, kind: 'hold', note: 'at target', prio: 3 });
+      const note = target > cap && target - cap >= floor ? 'held at the on-chain risk cap; the owner can raise it' : unb > 0n && !v.claimable ? 'unstaked NEAR still unbonding' : 'at target';
+      steps.push({ ...base, kind: 'hold', note, prio: 3 });
     }
   }
   return steps.sort((a, b) => a.prio - b.prio || b.apr - a.apr);
 }
+
+const apr = (report, mirror, v) => report.venues.find((x) => x.id === mirror[v.id])?.live.apr_base ?? 0;
 
 /** Milliseconds until the vault accepts another supply (exits never wait). */
 export function cooldownLeft(vault, now = Date.now()) {

@@ -215,3 +215,95 @@ fn rhea_withdraw_amount_is_scaled_to_internal_units() {
     assert_eq!(scale_up(5 * UNIT, 12), 5_000_000_000_000_000_000);
     assert_eq!(scale_up(7, 0), 7);
 }
+
+// ------------------------------------------------------------------ v3
+
+#[test]
+fn feeder_can_lower_the_risk_cap() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    v.set_risk_cap("rhea-usdc".into(), U128(25 * UNIT));
+    let view = v.get_venues().into_iter().find(|x| x.id == "rhea-usdc").unwrap();
+    assert_eq!(view.effective_cap.0, 25 * UNIT);
+    assert_eq!(view.risk_cap.unwrap().0, 25 * UNIT);
+}
+
+#[test]
+#[should_panic(expected = "risk feeder can only lower the cap")]
+fn feeder_cannot_raise_the_risk_cap() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    v.set_risk_cap("rhea-usdc".into(), U128(25 * UNIT));
+    v.set_risk_cap("rhea-usdc".into(), U128(40 * UNIT));
+}
+
+#[test]
+#[should_panic(expected = "owner only")]
+fn feeder_cannot_clear_the_risk_cap() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    v.set_risk_cap("rhea-usdc".into(), U128(25 * UNIT));
+    v.clear_risk_cap("rhea-usdc".into());
+}
+
+#[test]
+#[should_panic(expected = "would exceed risk cap")]
+fn stolen_key_is_held_to_the_risk_cap() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    v.set_risk_cap("rhea-usdc".into(), U128(10 * UNIT));
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(15 * UNIT));
+}
+
+#[test]
+fn owner_can_raise_and_clear_the_risk_cap() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    v.set_risk_cap("rhea-usdc".into(), U128(10 * UNIT));
+    as_owner();
+    v.set_risk_cap("rhea-usdc".into(), U128(30 * UNIT));
+    v.clear_risk_cap("rhea-usdc".into());
+    let view = v.get_venues().into_iter().find(|x| x.id == "rhea-usdc").unwrap();
+    assert_eq!(view.effective_cap.0, 50 * UNIT);
+    assert!(view.risk_cap.is_none());
+}
+
+#[test]
+fn guardians_can_exit_without_the_agent() {
+    let mut v = setup();
+    ctx(FEEDER, other_pk(), 5_000);
+    let _ = v.guardian_exit("rhea-usdc".into(), U128(UNIT));
+    as_owner();
+    let _ = v.guardian_exit("rhea-usdc".into(), U128(UNIT));
+}
+
+#[test]
+#[should_panic(expected = "owner or risk feeder only")]
+fn outsiders_cannot_use_guardian_exit() {
+    let mut v = setup();
+    ctx("attacker.near", other_pk(), 5_000);
+    let _ = v.guardian_exit("rhea-usdc".into(), U128(UNIT));
+}
+
+#[test]
+fn venue_account_answers_parse_into_positions() {
+    let burrow = br#"{"account_id":"v","supplied":[{"token_id":"dai.fakes.testnet","balance":"7"},{"token_id":"usdc.fakes.testnet","balance":"25000656535604415719","shares":"1"}],"collateral":[]}"#;
+    assert_eq!(parse_venue_account(&VenueKind::LendingFt, "usdc.fakes.testnet", 12, burrow), Some((25_000_656, 0)));
+    assert_eq!(parse_venue_account(&VenueKind::LendingFt, "usdt.near", 12, burrow), Some((0, 0)));
+    assert_eq!(parse_venue_account(&VenueKind::LendingFt, "usdc.fakes.testnet", 12, b"null"), Some((0, 0)));
+    let linear = br#"{"account_id":"v","unstaked_balance":"400","staked_balance":"600","can_withdraw":false}"#;
+    assert_eq!(parse_venue_account(&VenueKind::LiquidStake, "near", 0, linear), Some((600, 400)));
+    assert_eq!(parse_venue_account(&VenueKind::LiquidStake, "near", 0, b"{\"oops\":1}"), None);
+}
+
+#[test]
+#[should_panic(expected = "would exceed venue cap")]
+fn unbonding_counts_toward_the_venue_cap() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    raw_set("unb", "rhea-usdc", Some(25 * UNIT));
+    as_agent(20_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(10 * UNIT));
+}

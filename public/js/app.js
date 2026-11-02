@@ -104,9 +104,9 @@ function renderOverview() {
     const v = VENUE[next.venue] || { name: next.venue, sym: '' };
     card.classList.add(next.kind === 'supply' ? 'is-supply' : 'is-exit');
     $('#next-pill').innerHTML = `<span class="pill ${next.verdict}">${VERDICT[next.verdict]}</span>`;
-    const verb = { supply: 'Supply', withdraw: 'Withdraw', block: 'Block' }[next.kind];
+    const verb = { supply: 'Supply', withdraw: 'Withdraw', block: 'Block', tighten: 'Cap', claim: 'Claim' }[next.kind];
     const amt = next.amount ? `<span class="fig">${units(next.amount, next.token)} ${v.sym}</span> ` : '';
-    const prep = next.kind === 'supply' ? 'to' : next.kind === 'withdraw' ? 'from' : '';
+    const prep = next.kind === 'supply' ? 'to' : next.kind === 'withdraw' || next.kind === 'claim' ? 'from' : next.kind === 'tighten' ? 'on' : '';
     $('#next-lead').innerHTML = `${verb} ${amt}${prep} ${esc(v.name)}`;
     const why = [
       `${MIRROR_NAME[next.mirrors] || next.mirrors} pays ${pct(next.apr)} on mainnet.`,
@@ -126,12 +126,15 @@ function tickCooldown() {
   $('#plan-cool').innerHTML = html;
 }
 
-const ICON = { supply: 'M12 19V5M6 11l6-6 6 6', withdraw: 'M12 5v14M6 13l6 6 6-6', block: 'M5.5 5.5l13 13M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18', unblock: 'M8 11V7a4 4 0 0 1 7.5-2M5 11h14v10H5z' };
+const ICON = { tighten: 'M4 7h16M7 12h10M10 17h4', claim: 'M12 4v11M7 10l5 5 5-5M5 20h14', supply: 'M12 19V5M6 11l6-6 6 6', withdraw: 'M12 5v14M6 13l6 6 6-6', block: 'M5.5 5.5l13 13M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18', unblock: 'M8 11V7a4 4 0 0 1 7.5-2M5 11h14v10H5z' };
 function feedItem(m, v) {
   const sc = m.scenario ? (state.scenarios?.find((x) => x.id === m.scenario)?.title || m.scenario) : null;
   const t = m.kind === 'block' ? `Risk feeder blocked ${v.name}` : m.kind === 'unblock' ? `Owner reopened ${v.name}`
+    : m.kind === 'tighten' ? `Risk feeder capped ${v.name} at ${units(m.amount, v.token)} ${v.sym} on chain`
+    : m.kind === 'claim' ? `Claimed unstaked ${v.sym} from ${v.name}`
     : `${m.kind === 'supply' ? 'Supplied' : 'Withdrew'} ${m.amount ? `${units(m.amount, v.token)} ${v.sym} ` : ''}${m.kind === 'supply' ? 'to' : 'from'} ${v.name}`;
   const d = m.kind === 'unblock' ? 'Only the owner key can reopen a blocked venue.'
+    : m.kind === 'tighten' ? `The policy's size is now binding for any holder of the agent key${m.reasons?.length ? `: ${m.reasons[0]}` : ''}`
     : `${sc ? `Simulated event: ${sc}. ` : ''}${VERDICT[m.verdict]} by the policy${m.reasons?.length ? `: ${m.kind === 'supply' ? m.reasons[0] : m.reasons[m.reasons.length - 1]}` : ''}`;
   if (!m.ok) return { at: m.at, kind: 'block', icon: ICON.block, t: `Refused: ${t}`, d: cleanReason(m.reason), tx: m.tx };
   return { at: m.at, kind: m.kind === 'supply' || m.kind === 'unblock' ? 'allow' : 'block', icon: ICON[m.kind] || ICON.supply, t, d, tx: m.tx };
@@ -232,8 +235,8 @@ function renderVault(v) {
     const st = x.venue.blocked_reason ? `<span class="pill block">Blocked</span><div class="note">${esc(x.venue.blocked_reason)}</div>`
       : x.venue.enabled ? '<span class="pill allow">Open</span>' : '<span class="pill cap">Disabled</span>';
     return `<tr><th scope="row">${ent(VENUE[x.id]?.name || x.id, LOGO[x.venue.contract], x.venue.contract)}</th><td>${st}</td>
-      <td class="n">${units(x.position, x.venue.token)} ${sym(x.venue.token)}</td>
-      <td class="n">${units(x.venue.max_alloc, x.venue.token)}</td>
+      <td class="n">${units(x.position, x.venue.token)} ${sym(x.venue.token)}${BigInt(x.unbonding ?? 0) >= 10n ** 18n ? `<div class="note">${units(x.unbonding, x.venue.token)} unbonding</div>` : ''}</td>
+      <td class="n">${units(x.effective_cap ?? x.venue.max_alloc, x.venue.token)}${x.risk_cap ? `<div class="note">risk cap (venue cap ${units(x.venue.max_alloc, x.venue.token)})</div>` : ''}</td>
       <td class="n">${units(x.max_move, x.venue.token)}</td></tr>`;
   }).join('');
 
@@ -248,6 +251,8 @@ function renderVault(v) {
 
 const SIGNER = {
   block: 'Signed by the risk feeder: block_venue.',
+  tighten: 'Signed by the risk feeder: set_risk_cap. Only the owner can raise it again.',
+  claim: 'Signed by the agent key: agent_claim_unstaked.',
   withdraw: 'Signed by the agent key. Exits skip the cooldown.',
   supply: 'Signed by the agent key, after the cooldown.',
 };
@@ -256,10 +261,13 @@ function planHTML(steps) {
     const v = VENUE[s.venue] || { name: s.venue, sym: '' };
     const go = s.kind !== 'hold';
     const t = go
-      ? `${{ supply: 'Supply', withdraw: 'Withdraw', block: 'Block' }[s.kind]} ${s.amount ? `${units(s.amount, s.token)} ${v.sym} ` : ''}${s.kind === 'supply' ? 'to' : s.kind === 'withdraw' ? 'from' : ''} ${v.name}`
+      ? s.kind === 'tighten' ? `Lower the cap on ${v.name} to ${units(s.amount, s.token)} ${v.sym}`
+        : s.kind === 'claim' ? `Claim ${units(s.amount, s.token)} unstaked ${v.sym} from ${v.name}`
+        : `${{ supply: 'Supply', withdraw: 'Withdraw', block: 'Block' }[s.kind]} ${s.amount ? `${units(s.amount, s.token)} ${v.sym} ` : ''}${s.kind === 'supply' ? 'to' : s.kind === 'withdraw' ? 'from' : ''} ${v.name}`
       : `Hold ${v.name}`;
     let d = `${units(s.have, s.token)} of ${units(s.want, s.token)} ${v.sym} target. ${MIRROR_NAME[s.mirrors] || s.mirrors} at ${pct(s.apr)}${s.note ? `, ${s.note}` : ''}.`;
     if (s.kind === 'block') d = `Reason on chain: "${s.reason}".`;
+    if (s.kind === 'tighten') d = `Policy size ${units(s.amount, s.token)} of ${units(s.cap, s.token)} ${v.sym} allowed on chain now. Puts the policy cap on chain, so a stolen agent key is held to it too.`;
     if (go) d += ` ${SIGNER[s.kind]}`;
     if (s.kind === 'withdraw' && s.token === 'near') d += ' Unstaked NEAR returns after 4 epochs.';
     return `<li class="${go ? 'go' : ''}"><div><div class="t">${esc(t)}</div><div class="d">${esc(d)}</div></div><span class="pill ${go ? s.verdict : 'hold'}">${go ? VERDICT[s.verdict] : 'Hold'}</span></li>`;
@@ -267,7 +275,7 @@ function planHTML(steps) {
 }
 function renderPlan(p) { $('#plan').innerHTML = planHTML(p.steps); }
 
-const VERB = { supply: 'Supplied to', withdraw: 'Withdrew from', block: 'Blocked', unblock: 'Owner reopened' };
+const VERB = { supply: 'Supplied to', withdraw: 'Withdrew from', block: 'Blocked', unblock: 'Owner reopened', tighten: 'Capped', claim: 'Claimed from' };
 function renderMoves(a) {
   const rows = [...a.moves].reverse().map((m) => {
     const v = VENUE[m.venue] || { name: m.venue, token: 'usdc', sym: '' };
@@ -358,9 +366,11 @@ function cleanReason(r) {
   if (/RequiresFullAccess/.test(r)) return 'NEAR: a transfer needs a full-access key';
   if (/DepositWithFunctionCall/.test(r)) return 'NEAR: a function-call key cannot attach a deposit';
   if (/NotEnoughAllowance/.test(r)) return 'NEAR: over the key allowance';
+  if (/AccessKeyNotFound/.test(r)) return 'NEAR: the key was deleted from the vault';
   return r.slice(0, 160);
 }
 
+const ACTOR = { agent: 'Agent key', feeder: 'Risk feeder', owner: 'Owner' };
 function renderDrill(d) {
   const stopped = d.results.filter((r) => r.expect === 'rejected' && r.pass).length;
   const attacks = d.results.filter((r) => r.expect === 'rejected').length;
@@ -369,9 +379,11 @@ function renderDrill(d) {
   $('#drill-tbl tbody').innerHTML = d.results.map((r) => {
     const ok = r.outcome === 'executed';
     const pill = ok ? '<span class="pill allow">Went through</span>' : '<span class="pill block">Stopped</span>';
-    const why = ok ? (r.expect === 'executed' ? 'Allowed by the policy' : 'Unexpected') : cleanReason(r.reason);
+    let why = ok ? (r.expect === 'executed' ? 'Allowed by the policy' : 'Unexpected') : cleanReason(r.reason);
+    // Contract messages carry raw USDC units (6 decimals); show the amount beside them.
+    if (/USDC/.test(r.intent)) why = why.replace(/\b(\d{7,})\b/g, (n) => `${n} (${num(Number(n) / 1e6, 6)} USDC)`);
     const proof = r.tx ? `<a href="${esc(r.tx)}">Transaction</a>` : 'Refused by NEAR before it ran';
-    return `<tr><th scope="row">${esc(r.intent)}</th><td>${pill}</td><td>${esc(why)}</td><td>${proof}</td></tr>`;
+    return `<tr><th scope="row">${esc(r.intent)}</th><td>${esc(ACTOR[r.actor] || 'Agent key')}</td><td>${pill}</td><td>${esc(why)}</td><td>${proof}</td></tr>`;
   }).join('');
 }
 

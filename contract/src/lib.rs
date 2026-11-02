@@ -6,6 +6,14 @@
 //! so a compromised agent (stolen key, prompt injection, bad model output) can only
 //! move money between the vault and venues the owner approved, in capped amounts.
 //! Funds leave the vault/venue loop only to the owner.
+//!
+//! v3 adds, without a state migration (new values live under their own storage keys):
+//! - a risk cap per venue that the risk feeder can only lower and only the owner can
+//!   raise or clear, so the off-chain policy's tighter caps bind a stolen agent key too;
+//! - exits and claims by the owner or risk feeder, which work after the agent key is
+//!   removed;
+//! - positions synced from the venue's own account after every exit and claim, and an
+//!   unbonding ledger for liquid-staking exits, which counts toward the venue cap.
 
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
@@ -20,6 +28,7 @@ const GAS_FT_TRANSFER_CALL: Gas = Gas::from_tgas(80);
 const GAS_VENUE_CALL: Gas = Gas::from_tgas(60);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
+const GAS_VIEW: Gas = Gas::from_tgas(10);
 const DAY_NS: u64 = 86_400 * 1_000_000_000;
 /// Native NEAR the vault keeps for its own storage; the agent can never stake it.
 const NATIVE_RESERVE: NearToken = NearToken::from_millinear(500);
@@ -92,9 +101,16 @@ pub struct VaultView {
 pub struct VenueView {
     pub id: String,
     pub venue: Venue,
-    /// Principal the vault has supplied and not yet withdrawn, as tracked by the vault.
+    /// What the vault holds in the venue: reserved on supply, synced from the venue's
+    /// own account after every exit and claim (so it includes earned interest).
     pub position: U128,
+    /// Liquid-staking exits waiting out the unbonding delay. Still exposed to the venue.
+    pub unbonding: U128,
     pub max_move: U128,
+    /// Cap set by the risk feeder (lower only) or owner, if any.
+    pub risk_cap: Option<U128>,
+    /// The cap a supply is checked against: min(max_alloc, risk_cap).
+    pub effective_cap: U128,
 }
 
 #[near(contract_state)]
@@ -119,6 +135,52 @@ pub fn scale_up(amount: u128, extra_decimals: u8) -> u128 {
     amount
         .checked_mul(10u128.pow(extra_decimals as u32))
         .unwrap_or_else(|| env::panic_str("amount overflows venue units"))
+}
+
+// v3 values under their own storage keys ("x:<what>:<venue>"), so v2 state still loads.
+fn raw_key(what: &str, id: &str) -> Vec<u8> {
+    format!("x:{what}:{id}").into_bytes()
+}
+fn raw_get(what: &str, id: &str) -> Option<u128> {
+    env::storage_read(&raw_key(what, id)).map(|b| u128::from_le_bytes(b.try_into().expect("bad stored value")))
+}
+fn raw_set(what: &str, id: &str, v: Option<u128>) {
+    match v {
+        Some(x) => {
+            env::storage_write(&raw_key(what, id), &x.to_le_bytes());
+        }
+        None => {
+            env::storage_remove(&raw_key(what, id));
+        }
+    }
+}
+
+/// Venue internal units back to token units (rounds down).
+pub fn scale_down(amount: u128, extra_decimals: u8) -> u128 {
+    amount / 10u128.pow(extra_decimals as u32)
+}
+
+/// Read the vault's holding from a venue's `get_account` answer:
+/// Burrow-style lending reports `supplied[].balance` in internal units, liquid staking
+/// reports `staked_balance` and `unstaked_balance`. Returns (position, unbonding).
+pub fn parse_venue_account(kind: &VenueKind, token: &str, extra_decimals: u8, bytes: &[u8]) -> Option<(u128, u128)> {
+    let v: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    if v.is_null() {
+        return Some((0, 0));
+    }
+    let num = |x: &serde_json::Value| x.as_str().and_then(|s| s.parse::<u128>().ok());
+    match kind {
+        VenueKind::LendingFt => {
+            let supplied = v.get("supplied")?.as_array()?;
+            let bal = supplied
+                .iter()
+                .find(|e| e.get("token_id").and_then(|t| t.as_str()) == Some(token))
+                .map(|e| e.get("balance").and_then(num))
+                .unwrap_or(Some(0))?;
+            Some((scale_down(bal, extra_decimals), 0))
+        }
+        VenueKind::LiquidStake => Some((num(v.get("staked_balance")?)?, num(v.get("unstaked_balance")?)?)),
+    }
 }
 
 fn emit(event: &str, data: serde_json::Value) {
@@ -165,12 +227,11 @@ impl Vault {
             env::panic_str(&format!("move {amount} exceeds per-move cap {cap}"));
         }
         let position = self.position(&venue_id);
-        if position + amount > venue.max_alloc.0 {
-            env::panic_str(&format!(
-                "allocation {} would exceed venue cap {}",
-                position + amount,
-                venue.max_alloc.0
-            ));
+        let exposure = position + self.unbonding(&venue_id) + amount;
+        let cap = self.effective_cap(&venue_id, &venue);
+        if exposure > cap {
+            let which = if cap < venue.max_alloc.0 { "risk cap" } else { "venue cap" };
+            env::panic_str(&format!("allocation {exposure} would exceed {which} {cap}"));
         }
         self.check_rate();
 
@@ -214,47 +275,54 @@ impl Vault {
 
     /// Pull `amount` back from a venue into the vault. Allowed even when the venue is
     /// blocked or the vault is paused, and exempt from the cooldown: exiting risk is
-    /// never rate-limited.
+    /// never rate-limited. Funds can only land back in the vault.
     pub fn agent_withdraw(&mut self, venue_id: String, amount: U128) -> Promise {
         self.assert_agent();
-        let venue = self.venue(&venue_id);
-        let amount = amount.0;
-        require!(amount > 0, "zero amount");
-        emit("withdraw_started", json!({"venue": venue_id, "amount": U128(amount)}));
-        let call = match venue.kind {
-            VenueKind::LendingFt => Promise::new(venue.contract.clone()).function_call(
-                "execute",
-                json!({"actions": [{"Withdraw": {"token_id": venue.token, "max_amount": U128(scale_up(amount, venue.extra_decimals))}}]})
-                    .to_string()
-                    .into_bytes(),
-                ONE_YOCTO,
-                GAS_VENUE_CALL,
-            ),
-            VenueKind::LiquidStake => Promise::new(venue.contract.clone()).function_call(
-                "unstake",
-                json!({"amount": U128(amount)}).to_string().into_bytes(),
-                NearToken::from_yoctonear(0),
-                GAS_VENUE_CALL,
-            ),
-        };
-        call.then(
-            Self::ext(env::current_account_id())
-                .with_static_gas(GAS_CALLBACK)
-                .on_withdraw(venue_id, U128(amount)),
-        )
+        self.start_exit(venue_id, amount.0)
     }
 
     /// Finish a liquid-staking exit after the unbonding delay. Funds land in the vault.
     pub fn agent_claim_unstaked(&mut self, venue_id: String) -> Promise {
         self.assert_agent();
+        self.start_claim(venue_id)
+    }
+
+    // ------------------------------------------------- owner or risk feeder
+
+    /// Exit a venue without the agent: works after the agent key is removed.
+    pub fn guardian_exit(&mut self, venue_id: String, amount: U128) -> Promise {
+        self.assert_owner_or_feeder();
+        self.start_exit(venue_id, amount.0)
+    }
+
+    /// Claim unstaked NEAR without the agent.
+    pub fn guardian_claim(&mut self, venue_id: String) -> Promise {
+        self.assert_owner_or_feeder();
+        self.start_claim(venue_id)
+    }
+
+    /// Lower a venue's cap. The risk feeder can only lower it; the owner can set any
+    /// value. Supplies are checked against min(max_alloc, risk_cap).
+    pub fn set_risk_cap(&mut self, venue_id: String, cap: U128) {
+        self.assert_owner_or_feeder();
         let venue = self.venue(&venue_id);
-        require!(venue.kind == VenueKind::LiquidStake, "not a staking venue");
-        Promise::new(venue.contract).function_call(
-            "withdraw_all",
-            b"{}".to_vec(),
-            NearToken::from_yoctonear(0),
-            GAS_VENUE_CALL,
-        )
+        if env::predecessor_account_id() != self.owner {
+            let current = self.effective_cap(&venue_id, &venue);
+            if cap.0 >= current {
+                env::panic_str(&format!("risk feeder can only lower the cap (now {current})"));
+            }
+        }
+        raw_set("cap", &venue_id, Some(cap.0));
+        emit("risk_cap_set", json!({"venue": venue_id, "cap": cap, "by": env::predecessor_account_id()}));
+    }
+
+    // ------------------------------------------------------------- anyone
+
+    /// Re-read the vault's holding from the venue itself. Safe for anyone to call:
+    /// the venue contract was fixed when the owner approved it.
+    pub fn sync_position(&mut self, venue_id: String) -> Promise {
+        let venue = self.venue(&venue_id);
+        self.read_venue(&venue_id, &venue)
     }
 
     // ------------------------------------------------------------ callbacks
@@ -283,15 +351,27 @@ impl Vault {
         U128(used)
     }
 
+    /// Set position and unbonding from the venue's `get_account` answer. The answer
+    /// arrives whether or not the exit before it succeeded, so the books follow the
+    /// venue rather than the amount requested.
     #[private]
-    pub fn on_withdraw(&mut self, venue_id: String, amount: U128) -> bool {
-        let ok = !matches!(env::promise_result_checked(0, 256), Err(near_sdk::PromiseError::Failed));
-        if ok {
-            let pos = self.position(&venue_id);
-            self.positions.insert(venue_id.clone(), pos.saturating_sub(amount.0));
+    pub fn on_sync(&mut self, venue_id: String) -> bool {
+        let venue = self.venue(&venue_id);
+        let parsed = env::promise_result_checked(0, 16_384)
+            .ok()
+            .and_then(|b| parse_venue_account(&venue.kind, &venue.token, venue.extra_decimals, &b));
+        match parsed {
+            Some((position, unbonding)) => {
+                self.positions.insert(venue_id.clone(), position);
+                raw_set("unb", &venue_id, if unbonding > 0 { Some(unbonding) } else { None });
+                emit("position_synced", json!({"venue": venue_id, "position": U128(position), "unbonding": U128(unbonding)}));
+                true
+            }
+            None => {
+                emit("sync_failed", json!({"venue": venue_id}));
+                false
+            }
         }
-        emit("withdraw_done", json!({"venue": venue_id, "amount": amount, "ok": ok}));
-        ok
     }
 
     // ---------------------------------------------------------- risk feeder
@@ -341,6 +421,13 @@ impl Vault {
         v.blocked_reason = None;
         self.venues.insert(venue_id.clone(), v);
         emit("venue_unblocked", json!({"venue": venue_id}));
+    }
+
+    /// Remove a venue's risk cap. Owner only: loosening risk is the owner's call.
+    pub fn clear_risk_cap(&mut self, venue_id: String) {
+        self.assert_owner();
+        raw_set("cap", &venue_id, None);
+        emit("risk_cap_cleared", json!({"venue": venue_id}));
     }
 
     pub fn set_max_move(&mut self, token: String, amount: U128) {
@@ -464,7 +551,10 @@ impl Vault {
                 id: id.clone(),
                 venue: v.clone(),
                 position: U128(self.position(id)),
+                unbonding: U128(self.unbonding(id)),
                 max_move: U128(self.max_move.get(&v.token).copied().unwrap_or(0)),
+                risk_cap: raw_get("cap", id).map(U128),
+                effective_cap: U128(self.effective_cap(id, v)),
             })
             .collect()
     }
@@ -502,6 +592,66 @@ impl Vault {
 
     fn position(&self, id: &str) -> u128 {
         self.positions.get(id).copied().unwrap_or(0)
+    }
+
+    fn unbonding(&self, id: &str) -> u128 {
+        raw_get("unb", id).unwrap_or(0)
+    }
+
+    fn effective_cap(&self, id: &str, venue: &Venue) -> u128 {
+        raw_get("cap", id).map_or(venue.max_alloc.0, |c| c.min(venue.max_alloc.0))
+    }
+
+    /// The exit call for a venue's kind, followed by a sync from the venue's account.
+    fn start_exit(&mut self, venue_id: String, amount: u128) -> Promise {
+        let venue = self.venue(&venue_id);
+        require!(amount > 0, "zero amount");
+        emit("withdraw_started", json!({"venue": venue_id, "amount": U128(amount), "by": env::predecessor_account_id()}));
+        let call = match venue.kind {
+            VenueKind::LendingFt => Promise::new(venue.contract.clone()).function_call(
+                "execute",
+                json!({"actions": [{"Withdraw": {"token_id": venue.token, "max_amount": U128(scale_up(amount, venue.extra_decimals))}}]})
+                    .to_string()
+                    .into_bytes(),
+                ONE_YOCTO,
+                GAS_VENUE_CALL,
+            ),
+            VenueKind::LiquidStake => Promise::new(venue.contract.clone()).function_call(
+                "unstake",
+                json!({"amount": U128(amount)}).to_string().into_bytes(),
+                NearToken::from_yoctonear(0),
+                GAS_VENUE_CALL,
+            ),
+        };
+        call.then(self.view_account(&venue)).then(self.sync_cb(&venue_id))
+    }
+
+    fn start_claim(&mut self, venue_id: String) -> Promise {
+        let venue = self.venue(&venue_id);
+        require!(venue.kind == VenueKind::LiquidStake, "not a staking venue");
+        emit("claim_started", json!({"venue": venue_id, "by": env::predecessor_account_id()}));
+        Promise::new(venue.contract.clone())
+            .function_call("withdraw_all", b"{}".to_vec(), NearToken::from_yoctonear(0), GAS_VENUE_CALL)
+            .then(self.view_account(&venue))
+            .then(self.sync_cb(&venue_id))
+    }
+
+    /// `get_account` on the venue, then `on_sync`.
+    fn read_venue(&self, venue_id: &str, venue: &Venue) -> Promise {
+        self.view_account(venue).then(self.sync_cb(venue_id))
+    }
+
+    fn view_account(&self, venue: &Venue) -> Promise {
+        Promise::new(venue.contract.clone()).function_call(
+            "get_account",
+            json!({"account_id": env::current_account_id()}).to_string().into_bytes(),
+            NearToken::from_yoctonear(0),
+            GAS_VIEW,
+        )
+    }
+
+    fn sync_cb(&self, venue_id: &str) -> Promise {
+        Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_sync(venue_id.to_string())
     }
 
     fn check_rate(&mut self) {

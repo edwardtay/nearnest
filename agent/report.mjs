@@ -32,8 +32,10 @@ export function judgeInputs(inputs) {
   const venues = VENUES.map((v) => {
     const j = judge(v, live[v.id], ctx);
     const max = MAX_ALLOC[v.id] ?? 0;
-    return { id: v.id, label: v.label, protocol: v.protocol, contract: v.contract, token: v.token, symbol: v.symbol, kind: v.kind,
-      live: live[v.id], judgement: j, target: targetFor(v, live[v.id], j, max), max_alloc: max };
+    // exit_ceiling: the most any vault should hold here (1% of what can leave now), in tokens.
+    const exit_ceiling = v.kind === 'LendingFt' ? live[v.id].exit_liquidity * RULES.maxShareOfExitLiquidity : null;
+    return { id: v.id, label: v.label, protocol: v.protocol, contract: v.contract, token: v.token, symbol: v.symbol, kind: v.kind, decimals: v.decimals,
+      live: live[v.id], judgement: j, target: targetFor(v, live[v.id], j, max), max_alloc: max, exit_ceiling };
   });
   const near_incidents = inc.filter((i) => (i.chain || []).includes('Near') && now - i.ts < 400 * 86_400_000);
   return { generated_at: new Date(now).toISOString(), network: 'mainnet', rules: RULES, prices: px, venues, near_incidents };

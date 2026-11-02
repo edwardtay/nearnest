@@ -37,6 +37,7 @@ const view = async (account_id, method_name, a = {}) => JSON.parse(Buffer.from((
   request_type: 'call_function', finality: 'final', account_id, method_name, args_base64: Buffer.from(JSON.stringify(a)).toString('base64'),
 })).result).toString());
 const human = (raw, token) => Number(BigInt(raw) * 1000n / 10n ** BigInt(DECIMALS[token])) / 1000;
+const SIGNER_OF = { block: 'feeder', tighten: 'feeder', withdraw: 'agent', supply: 'agent', claim: 'agent' };
 
 function failureText(o) {
   for (const st of [o.status, ...o.receipts_outcome.map((r) => r.outcome.status)]) {
@@ -54,8 +55,14 @@ async function plan(report) {
   for (const tk of new Set(venues.map((v) => v.venue.token).filter((x) => x !== 'near'))) {
     idle[tk] = BigInt(await view(tk, 'ft_balance_of', { account_id: s.vault }));
   }
-  // Reads use final finality, a block or two behind; skip blocks this run already sent.
-  return { vault, steps: planMoves(report, venues, idle, undefined, SC ? `simulated ${SC.id}` : 'policy').filter((p) => !(p.kind === 'block' && blockedThisRun.has(p.venue))) };
+  // Unstaked NEAR is claimable once the staking venue says so.
+  for (const v of venues) {
+    if (v.venue.kind === 'LiquidStake' && BigInt(v.unbonding ?? 0) > 0n) {
+      v.claimable = !!(await view(v.venue.contract, 'get_account', { account_id: s.vault }).catch(() => null))?.can_withdraw;
+    }
+  }
+  // Reads use final finality, a block or two behind; skip cap changes this run already sent.
+  return { vault, steps: planMoves(report, venues, idle, undefined, SC ? `simulated ${SC.id}` : 'policy').filter((p) => !sentThisRun.has(`${p.kind} ${p.venue}`)) };
 }
 
 const fmtStep = (p) => {
@@ -68,6 +75,8 @@ async function execute(step) {
   const send = (actor, actions) => actor.signAndSendTransaction({ receiverId: s.vault, actions, returnError: true });
   let o;
   if (step.kind === 'block') o = await send(feeder, [fc('block_venue', { venue_id: step.venue, reason: step.reason })]);
+  else if (step.kind === 'tighten') o = await send(feeder, [fc('set_risk_cap', { venue_id: step.venue, cap: String(step.amount) })]);
+  else if (step.kind === 'claim') o = await send(agent, [fc('agent_claim_unstaked', { venue_id: step.venue })]);
   else if (step.kind === 'withdraw') o = await send(agent, [fc('agent_withdraw', { venue_id: step.venue, amount: String(step.amount) })]);
   else o = await send(agent, [fc('agent_supply', { venue_id: step.venue, amount: String(step.amount) })]);
   const fail = failureText(o);
@@ -75,7 +84,7 @@ async function execute(step) {
 }
 
 const log = [];
-const blockedThisRun = new Set();
+const sentThisRun = new Set();
 const live = await readInputs();
 const report = judgeInputs(SC ? SC.apply(live) : live);
 console.log(`mainnet read ${report.generated_at}${SC ? `\nscenario: ${SC.title}. ${SC.story}` : ''}`);
@@ -98,11 +107,11 @@ for (let round = 0; round < 12; round++) {
     }
   }
   const r = await execute(next);
-  if (next.kind === 'block' && r.ok) blockedThisRun.add(next.venue);
+  if ((next.kind === 'block' || next.kind === 'tighten' || next.kind === 'claim') && r.ok) sentThisRun.add(`${next.kind} ${next.venue}`);
   console.log(`${r.ok ? 'done' : 'REFUSED'}  ${next.kind} ${next.venue}  ${r.tx}${r.reason ? `\n  ${r.reason}` : ''}`);
   log.push({ at: new Date().toISOString(), scenario: SC?.id ?? null, kind: next.kind, venue: next.venue, mirrors: next.mirrors, verdict: next.verdict,
     apr: next.apr, reasons: next.reasons, amount: next.amount != null ? String(next.amount) : null,
-    target: next.want != null ? String(next.want) : null, ok: r.ok, reason: r.reason, tx: r.tx });
+    target: next.want != null ? String(next.want) : null, signer: SIGNER_OF[next.kind], ok: r.ok, reason: r.reason, tx: r.tx });
   if (!LOOP && next.kind === 'supply') break;
 }
 

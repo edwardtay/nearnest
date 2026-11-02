@@ -177,7 +177,7 @@
         </div>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="venue-tbl">
-        <thead><tr><th>Approved venue</th><th>Status</th><th class="n">In venue</th><th class="n">Venue cap</th><th class="n">Per move</th></tr></thead>
+        <thead><tr><th>Approved venue</th><th>Status</th><th class="n">In venue</th><th class="n">Cap now</th><th class="n">Per move</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -229,10 +229,10 @@
     <section class="view" data-view="drill" aria-labelledby="h-drill" hidden>
       <div class="view-head">
         <h2 id="h-drill">Attack drill</h2>
-        <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money. Each line links to its transaction.</p>
+        <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money, then the risk feeder and owner run the response: risk cap, block, key removal, exit without the agent, restore. Each line links to its transaction.</p>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="drill-tbl">
-        <thead><tr><th>Attempt</th><th>Result</th><th>What stopped it</th><th>Proof</th></tr></thead>
+        <thead><tr><th>Attempt</th><th>Signed by</th><th>Result</th><th>What stopped it</th><th>Proof</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -252,20 +252,20 @@
         <div class="tile">
           <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="21" rx="3" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="16" cy="16.5" r="5" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M16 11.5v2M16 19.5v2M11 16.5h2M19 16.5h2M8 27v2.5M24 27v2.5" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
           <h3>Vault contract</h3>
-          <p>Approved venues with fixed contracts, a cap per move and per venue, a cooldown, a daily limit, and withdrawals only to the owner.</p>
+          <p>Approved venues with fixed contracts, a cap per move and per venue, a cooldown, a daily limit, and withdrawals only to the owner. Positions are read back from each venue after every exit.</p>
         </div>
         <div class="tile">
           <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5l10.5 4v8c0 6.5-4.4 11.3-10.5 13-6.1-1.7-10.5-6.5-10.5-13v-8z" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 16h10" stroke="#b45309" stroke-width="2.8" stroke-linecap="round"/></svg>
           <h3>Risk feeder</h3>
-          <p>Blocks a venue or pauses the vault when an exploit or depeg lands. It cannot unblock, add venues or move funds.</p>
+          <p>Lowers a venue's cap to the policy's size, blocks a venue, pauses the vault, deletes the agent key, and pulls funds back into the vault. It cannot raise a cap, unblock, or send funds anywhere else.</p>
         </div>
       </div>
       <h3 class="sec-title">FAQ</h3>
       <dl class="faq">
         <dt>What if the agent's key is stolen?</dt>
-        <dd>The thief gets the agent's powers and nothing more: moving capped amounts between the vault and venues the owner approved. NEAR refuses any transfer or method outside the key's list before it runs, and the contract refuses the rest. The owner or risk feeder can delete the key in one call.</dd>
+        <dd>The thief gets the agent's powers and nothing more: moving capped amounts between the vault and venues the owner approved. NEAR refuses any transfer or method outside the key's list before it runs, and the contract refuses the rest. The policy's tighter caps are on chain too: the risk feeder sets them and can only lower them. The owner or risk feeder can delete the key in one call and still pull funds out of venues without it.</dd>
         <dt>Why does the highest yield get a smaller allocation?</dt>
-        <dd>Rhea Lend pays the most on NEAR, and it lost $18.4M to price manipulation on 16 April 2026 with no funds returned. Its pools are also about 89% lent out, so only a slice can leave at short notice. The policy keeps the venue and cuts the size.</dd>
+        <dd>Rhea Lend pays the most on NEAR, and it lost $18.4M to price manipulation on 16 April 2026; about $11.2M was later returned or frozen (The Block, 17 April). Its pools are also about 89% lent out, so only a slice can leave at short notice. The policy keeps the venue and cuts the size to half.</dd>
         <dt>Is the yield real?</dt>
         <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
         <dt>Which network is the vault on?</dt>

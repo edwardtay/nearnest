@@ -4,7 +4,7 @@
   "owner": "nearnest-mvz1l0ba.testnet",
   "feeder": "risk.nearnest-mvz1l0ba.testnet",
   "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
-  "ran_at": "2026-11-02T09:27:12.652Z",
+  "ran_at": "2026-11-02T17:59:43.560Z",
   "results": [
     {
       "name": "send-native-near",
@@ -14,7 +14,8 @@
       "reason": "RequiresFullAccess: The transaction contains more then one action, but it was signed with an access key which allows transaction to apply only one specific action. To apply more then one actions TX must be signed with a full access key",
       "tx": null,
       "pass": true,
-      "expect_reason": "/RequiresFullAccess|transfer/i"
+      "expect_reason": "/RequiresFullAccess|transfer/i",
+      "actor": "agent"
     },
     {
       "name": "call-owner-withdraw",
@@ -24,7 +25,8 @@
       "reason": "MethodNameMismatch: Transaction method name owner_withdraw isn't allowed by the access key",
       "tx": null,
       "pass": true,
-      "expect_reason": "/MethodNameMismatch/"
+      "expect_reason": "/MethodNameMismatch/",
+      "actor": "agent"
     },
     {
       "name": "call-token-directly",
@@ -34,7 +36,8 @@
       "reason": "DepositWithFunctionCall: {}",
       "tx": null,
       "pass": true,
-      "expect_reason": "/DepositWithFunctionCall|MethodNameMismatch|ReceiverMismatch/"
+      "expect_reason": "/DepositWithFunctionCall|MethodNameMismatch|ReceiverMismatch/",
+      "actor": "agent"
     },
     {
       "name": "unknown-venue",
@@ -42,9 +45,10 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: unknown venue attacker-pool\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/EHGr8579Beu2YBz4jM9DqU3t3EPtmMDX9Fx1Z4YuViCE",
+      "tx": "https://testnet.nearblocks.io/txns/8yNiCtFQKTqV3UZ7pmXSCRcTXksJsbMqninDZ9V1RHoA",
       "pass": true,
-      "expect_reason": "/unknown venue attacker-pool/"
+      "expect_reason": "/unknown venue attacker-pool/",
+      "actor": "agent"
     },
     {
       "name": "over-cap",
@@ -52,28 +56,63 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: move 25000000 exceeds per-move cap 20000000\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/HUS31gHR6wiSEWqqNyxegxQoD79tRrjcd9Gbib4xzvxp",
+      "tx": "https://testnet.nearblocks.io/txns/8o3AX8wmRRETKbAwSqvKwQGGgAvSXYTZeWN9wf9FJxuG",
       "pass": true,
-      "expect_reason": "/exceeds per-move cap/"
+      "expect_reason": "/exceeds per-move cap/",
+      "actor": "agent"
     },
     {
-      "name": "legit-supply",
-      "intent": "Supply 10 USDC to the approved lending venue",
+      "name": "exit",
+      "intent": "Withdraw 10 USDC from the venue back to the vault",
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/jZASULBHQMWbCgJygZ8Rfh4A528iB1SNDbbicT5rHCS",
-      "pass": true
+      "tx": "https://testnet.nearblocks.io/txns/6EzMdGBgCNDWJxt3Yyaws2jGJVNkpvuo5331CsDUhryG",
+      "pass": true,
+      "actor": "agent"
+    },
+    {
+      "name": "legit-supply",
+      "intent": "Supply 5 USDC to the approved lending venue",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/F14y9AMK6TaFhR8QFL73h487Tuy7kTmwEsraeg1hcaF8",
+      "pass": true,
+      "actor": "agent"
+    },
+    {
+      "name": "over-risk-cap",
+      "intent": "Supply 10 USDC more, past the 25 USDC risk cap the feeder set from the policy",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: allocation 30000679 would exceed risk cap 25000000\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/B4ZbBvaAndmb11DirYAGj51xGAt7MUzp6vbvnDHCFWKN",
+      "pass": true,
+      "expect_reason": "/would exceed risk cap/",
+      "actor": "agent"
     },
     {
       "name": "cooldown",
-      "intent": "Supply again straight away",
+      "intent": "Supply 1 USDC again straight away",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: cooldown: 54s left\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/HE3XHmPTj7dKd6zqc2KaFxVcceEGjNhatqBQnk8R2QZx",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: cooldown: 52s left\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/A3pXuGEvhkwEY2yV8fkv62Rv7oAbuX9pkqk2uJrcZTby",
       "pass": true,
-      "expect_reason": "/cooldown/"
+      "expect_reason": "/cooldown/",
+      "actor": "agent"
+    },
+    {
+      "name": "feeder-raises-cap",
+      "intent": "Risk feeder tries to raise the risk cap to 50 USDC",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: risk feeder can only lower the cap (now 25000000)\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/75NmDF6KnLm29sXMfogUg7LHnrDwvV2RZnQQdY6Ho2T6",
+      "pass": true,
+      "expect_reason": "/can only lower the cap/",
+      "actor": "feeder"
     },
     {
       "name": "feeder-blocks",
@@ -81,8 +120,9 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/DCr9DaDqMXKv82CvkZj8HRZvpWKK4bFdiRtXjE4obsGB",
-      "pass": true
+      "tx": "https://testnet.nearblocks.io/txns/5Q198Lnzotqy3LiVUjGtYxz5hgSdScQvxpvbfNuNcX4w",
+      "pass": true,
+      "actor": "feeder"
     },
     {
       "name": "supply-blocked",
@@ -90,18 +130,41 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: venue blocked: drill: venue exploited via spot price manipulation\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/CowNqRRfwSv8o6N13cVEQYfCPbEE5xKjzUDcnKVCp6Ct",
+      "tx": "https://testnet.nearblocks.io/txns/9v3D7QiTeXJuB5FL9xJD8avoD6boQiA9SS7BTGPUEhzr",
       "pass": true,
-      "expect_reason": "/venue blocked/"
+      "expect_reason": "/venue blocked/",
+      "actor": "agent"
     },
     {
-      "name": "exit-blocked",
-      "intent": "Withdraw from the blocked venue back to the vault",
+      "name": "kill-switch",
+      "intent": "Risk feeder deletes the agent key from the vault",
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/Fy1e9mqiXiHZTaMq7qm5dgYrUzLsyBC3jGBEwh6G2iBi",
-      "pass": true
+      "tx": "https://testnet.nearblocks.io/txns/DmyrijtHXdGvxL6LwHL7hzPYP5Q2PLjEU8tp43YsWQGb",
+      "pass": true,
+      "actor": "feeder"
+    },
+    {
+      "name": "dead-key",
+      "intent": "The removed agent key tries to withdraw",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "AccessKeyNotFound: Signer \"v2.nearnest-mvz1l0ba.testnet\" doesn't have access key with the given public_key ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
+      "tx": null,
+      "pass": true,
+      "expect_reason": "/access ?key|AccessKey|no matching key|does not exist/i",
+      "actor": "agent"
+    },
+    {
+      "name": "guardian-exit",
+      "intent": "Risk feeder pulls 5 USDC out of the blocked venue, with no agent key",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/FsvozVkuUAya34eis5dNELdZBFHShqKNohFSMZYRX6Yt",
+      "pass": true,
+      "actor": "feeder"
     },
     {
       "name": "feeder-unblock",
@@ -109,9 +172,20 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: owner only\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/Ddrd3y7PejiLjTWvskJTqPYp6Mg6s4Ar4F7uL7nnjX5i",
+      "tx": "https://testnet.nearblocks.io/txns/D4wj8hy7RvCJQHpiAVUSkEFwehUTaJQtCR7zBfdnh2Lf",
       "pass": true,
-      "expect_reason": "/owner only/"
+      "expect_reason": "/owner only/",
+      "actor": "feeder"
+    },
+    {
+      "name": "owner-restores-key",
+      "intent": "Owner adds the agent key back",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/CDYb7pd3VATzUrbTbgfnPRowJNqgZYurthnD7J3arBLt",
+      "pass": true,
+      "actor": "owner"
     },
     {
       "name": "owner-unblocks",
@@ -119,8 +193,9 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/4XABbsR3JSqeB4o8vN7jSeAy2aFjuaXWkaYZMamMaxnw",
-      "pass": true
+      "tx": "https://testnet.nearblocks.io/txns/EdhQtoYiQei8ddhctJQ2XE7pVEUtufw82WMYb2wAZgir",
+      "pass": true,
+      "actor": "owner"
     }
   ]
 }
