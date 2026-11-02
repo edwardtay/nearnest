@@ -136,7 +136,7 @@ function send(res, status, body, type = 'application/json; charset=utf-8', extra
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x');
+  const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
   try {
     if (await analytics(req, res, url)) return;
     if (url.pathname === '/api/scan') return send(res, 200, await scan());
