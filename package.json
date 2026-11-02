@@ -1,0 +1,14 @@
+{
+  "name": "web3wagmi-nearnest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "NEARnest: a yield agent on NEAR that earns, and cannot run off with your money.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.mjs",
+    "scan": "node agent/scan.mjs",
+    "test": "node --test agent/ && cd contract && cargo test"
+  }
+}

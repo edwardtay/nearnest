@@ -1,19 +1,20 @@
 {
   "network": "testnet",
-  "vault": "vault.nearnest-mvz1l0ba.testnet",
+  "vault": "v2.nearnest-mvz1l0ba.testnet",
   "owner": "nearnest-mvz1l0ba.testnet",
   "feeder": "risk.nearnest-mvz1l0ba.testnet",
-  "agent_key": "ed25519:JBopMB76jXWnxnYY4fDLjYsViQpL4MTQbATZArUQwGa1",
-  "ran_at": "2026-11-02T09:15:55.525Z",
+  "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
+  "ran_at": "2026-11-02T09:27:12.652Z",
   "results": [
     {
       "name": "send-native-near",
-      "intent": "Transfer 1 NEAR from the vault to the attacker",
+      "intent": "Transfer 0.1 NEAR from the vault to the attacker",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "NotEnoughAllowance: Access Key {account_id}:{public_key} does not have enough balance 0.5 for transaction costing 1.00024550081875",
+      "reason": "RequiresFullAccess: The transaction contains more then one action, but it was signed with an access key which allows transaction to apply only one specific action. To apply more then one actions TX must be signed with a full access key",
       "tx": null,
-      "pass": true
+      "pass": true,
+      "expect_reason": "/RequiresFullAccess|transfer/i"
     },
     {
       "name": "call-owner-withdraw",
@@ -22,7 +23,8 @@
       "outcome": "rejected",
       "reason": "MethodNameMismatch: Transaction method name owner_withdraw isn't allowed by the access key",
       "tx": null,
-      "pass": true
+      "pass": true,
+      "expect_reason": "/MethodNameMismatch/"
     },
     {
       "name": "call-token-directly",
@@ -31,25 +33,28 @@
       "outcome": "rejected",
       "reason": "DepositWithFunctionCall: {}",
       "tx": null,
-      "pass": true
+      "pass": true,
+      "expect_reason": "/DepositWithFunctionCall|MethodNameMismatch|ReceiverMismatch/"
     },
     {
       "name": "unknown-venue",
       "intent": "Supply into a venue the owner never approved",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/7JHpxLibK1iknbBFCSJJ8njjXFVXEiTRJmm1PT4PVg2g",
-      "pass": true
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: unknown venue attacker-pool\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/EHGr8579Beu2YBz4jM9DqU3t3EPtmMDX9Fx1Z4YuViCE",
+      "pass": true,
+      "expect_reason": "/unknown venue attacker-pool/"
     },
     {
       "name": "over-cap",
       "intent": "Supply 25 USDC when the per-move cap is 20",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/2c7G5DhJa5pkMbxNsKmthNkjuQeBGsASJ2u2UzKzV5a7",
-      "pass": true
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: move 25000000 exceeds per-move cap 20000000\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/HUS31gHR6wiSEWqqNyxegxQoD79tRrjcd9Gbib4xzvxp",
+      "pass": true,
+      "expect_reason": "/exceeds per-move cap/"
     },
     {
       "name": "legit-supply",
@@ -57,7 +62,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/8qqRrmwDNKomhRQKHscyNVTPm4WmiochpaxdTmKRWXUa",
+      "tx": "https://testnet.nearblocks.io/txns/jZASULBHQMWbCgJygZ8Rfh4A528iB1SNDbbicT5rHCS",
       "pass": true
     },
     {
@@ -65,9 +70,10 @@
       "intent": "Supply again straight away",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/BtcC8HbRBe9uf4nJ898d2SAdcrHj42GXacKbU4xkhb1p",
-      "pass": true
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: cooldown: 54s left\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/HE3XHmPTj7dKd6zqc2KaFxVcceEGjNhatqBQnk8R2QZx",
+      "pass": true,
+      "expect_reason": "/cooldown/"
     },
     {
       "name": "feeder-blocks",
@@ -75,7 +81,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/HEKcwyDS1mX7Ebi6wA4BniQz2cEehbsjXojxuce8ymHi",
+      "tx": "https://testnet.nearblocks.io/txns/DCr9DaDqMXKv82CvkZj8HRZvpWKK4bFdiRtXjE4obsGB",
       "pass": true
     },
     {
@@ -83,9 +89,10 @@
       "intent": "Supply into the blocked venue",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/FfwwxbJD4grncLijabmJVi2HVBChQ2wvDtawSCwt4kFU",
-      "pass": true
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: venue blocked: drill: venue exploited via spot price manipulation\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/CowNqRRfwSv8o6N13cVEQYfCPbEE5xKjzUDcnKVCp6Ct",
+      "pass": true,
+      "expect_reason": "/venue blocked/"
     },
     {
       "name": "exit-blocked",
@@ -93,7 +100,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/4U3W2mqVC5L32bHDx2rUo5QsvgXqD71WGfxtKJ4DT5mi",
+      "tx": "https://testnet.nearblocks.io/txns/Fy1e9mqiXiHZTaMq7qm5dgYrUzLsyBC3jGBEwh6G2iBi",
       "pass": true
     },
     {
@@ -101,8 +108,18 @@
       "intent": "Risk feeder tries to unblock (owner only)",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/GCMqUDdJEoA19Dsi5729dMFeLU7TsgGRUjEgDCdZV5cg",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: owner only\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/Ddrd3y7PejiLjTWvskJTqPYp6Mg6s4Ar4F7uL7nnjX5i",
+      "pass": true,
+      "expect_reason": "/owner only/"
+    },
+    {
+      "name": "owner-unblocks",
+      "intent": "Owner reviews and unblocks the venue",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/4XABbsR3JSqeB4o8vN7jSeAy2aFjuaXWkaYZMamMaxnw",
       "pass": true
     }
   ]

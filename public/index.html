@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>NEARnest: a yield agent held to an on-chain policy · web3wagmi</title>
+<meta name="description" content="A NEAR yield agent held to an on-chain policy: live yields judged against exploits and exit liquidity, and a vault its own agent cannot drain." />
+<meta name="author" content="Edward Tay" />
+<link rel="canonical" href="https://nearnest.web3wagmi.com/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="web3wagmi" />
+<meta property="og:title" content="NEARnest: a yield agent held to an on-chain policy" />
+<meta property="og:description" content="Live NEAR yields judged against exploits and exit liquidity, and a vault the agent cannot drain." />
+<meta property="og:url" content="https://nearnest.web3wagmi.com/" />
+<meta property="og:image" content="https://nearnest.web3wagmi.com/img/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://nearnest.web3wagmi.com/img/og.png" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/brand.css" />
+<link rel="stylesheet" href="/css/app.css" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NEARnest","applicationCategory":"FinanceApplication","operatingSystem":"Web","url":"https://nearnest.web3wagmi.com/","description":"A yield agent on NEAR held to an on-chain policy: approved venues, per-move and per-venue caps, cooldowns, a risk feeder that can only block, and withdrawals only to the owner.","author":{"@type":"Person","name":"Edward Tay","url":"https://edwardtay.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<!-- Umami analytics, web3wagmi.com shared website (covers all subdomains) -->
+<script defer src="https://umami.lever-labs.com/script.js" data-website-id="9af7f188-c0cb-4749-b3ba-d8cf34ecdd06"></script>
+<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a||!window.umami)return;try{var u=new URL(a.href,location.href);if(u.host&&u.host!==location.host)window.umami.track('outbound',{url:u.href,host:u.host,from:location.pathname});}catch(_){}},true);</script>
+<!-- SimpleAnalytics, first-party proxied, the same snippet every web3wagmi property runs -->
+<script>(function(){var h=location.hostname.replace(/^www\./,"");if(!/\./.test(h)||/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1)/.test(h))return;window.saPath=function(o){return h==="web3wagmi.com"?o.path:"/"+h+o.path};var s=document.createElement("script");s.async=!0;s.src="/proxy.js";s.setAttribute("data-hostname","web3wagmi.com");s.setAttribute("data-path-overwriter","saPath");document.head.appendChild(s)})();</script>
+<noscript><img src="/simple/noscript.gif?hostname=web3wagmi.com" alt="" referrerpolicy="no-referrer-when-downgrade"></noscript>
+</head>
+<body>
+<!-- Brand strip, canonical web3wagmi lockup, identical across every subdomain. -->
+<div class="site-brand">
+  <div class="site-brand-inner">
+    <a class="site-brand-link" href="https://web3wagmi.com" aria-label="web3wagmi home">
+      <svg class="site-brand-mark" width="40" height="40" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#f59e0b"/><g transform="translate(4 4)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></g></svg>
+      <span class="site-brand-text">web3<span>wagmi</span></span>
+    </a>
+  </div>
+</div>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-link" href="https://news.web3wagmi.com">News</a>
+    <span class="site-nav-dot" aria-hidden="true">·</span>
+    <a class="site-nav-link" href="https://blog.web3wagmi.com">Blog</a>
+    <span class="site-nav-dot" aria-hidden="true">·</span>
+    <a class="site-nav-link" href="https://terminal.web3wagmi.com">Terminal</a>
+    <span class="site-nav-dot" aria-hidden="true">·</span>
+    <a class="site-nav-link" href="https://events.web3wagmi.com">Events</a>
+    <span class="site-nav-dot" aria-hidden="true">·</span>
+    <a class="site-nav-link active" href="https://web3wagmi.com/tools">Tools</a>
+  </div>
+</nav>
+
+<header class="tool-head">
+  <div class="wrap">
+    <p class="crumb"><a href="https://web3wagmi.com/tools">Tools</a> / NEARnest</p>
+    <h1>NEARnest</h1>
+    <p class="lede">A yield agent on NEAR that earns, and cannot run off with your money. It reads live yields, judges each venue against exploits and exit liquidity, and moves funds through a vault that only lets it do what the owner approved.</p>
+  </div>
+</header>
+
+<nav class="toc" aria-label="On this page">
+  <div class="wrap toc-in">
+    <a href="#yield" aria-current="true">Yield, judged</a>
+    <a href="#vault">The vault</a>
+    <a href="#drill">Attack drill</a>
+    <a href="#how">How it works</a>
+    <a href="#faq">FAQ</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="stats" data-n="4">
+    <div class="stat"><span class="k">Best raw yield on NEAR</span><b id="st-best">…</b><span class="s" id="st-best-s"></span></div>
+    <div class="stat"><span class="k">Venues the agent may use now</span><b id="st-ok">…</b><span class="s" id="st-ok-s"></span></div>
+    <div class="stat"><span class="k">Keys on the vault account</span><b id="st-keys">…</b><span class="s" id="st-keys-s"></span></div>
+    <div class="stat"><span class="k">Drill attempts stopped</span><b id="st-drill">…</b><span class="s" id="st-drill-s"></span></div>
+  </div>
+
+  <section id="yield" class="section">
+    <div class="sec-head">
+      <h2>Yield, judged</h2>
+      <button class="btn-cta" id="rescan" type="button">Re-scan</button>
+    </div>
+    <p class="sub">Live mainnet rates, read from the venue contracts. The policy caps or blocks each venue and says why.</p>
+    <div class="tbl-wrap"><table class="tbl" id="yield-tbl">
+      <thead><tr><th>Venue</th><th class="n">Yield</th><th>Agent may put in</th><th>Why</th></tr></thead>
+      <tbody><tr><td colspan="4" class="loading">Reading NEAR mainnet…</td></tr></tbody>
+    </table></div>
+    <p class="foot" id="yield-foot"></p>
+  </section>
+
+  <section id="vault" class="section">
+    <h2>The vault</h2>
+    <p class="sub" id="vault-sub">Read live from the chain.</p>
+    <div class="pair">
+      <div class="panel">
+        <h3>Keys on the vault account</h3>
+        <ul class="keys" id="keys"></ul>
+        <p class="note">No full-access key exists, so nobody can redeploy the contract or move funds outside it. Only the owner can change code, through the contract.</p>
+      </div>
+      <div class="panel">
+        <h3>Rules the contract enforces</h3>
+        <dl class="rules" id="rules"></dl>
+      </div>
+    </div>
+    <div class="tbl-wrap short"><table class="tbl" id="venue-tbl">
+      <thead><tr><th>Approved venue</th><th>Status</th><th class="n">In venue</th><th class="n">Venue cap</th><th class="n">Per move</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="drill" class="section">
+    <h2>Attack drill</h2>
+    <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money. Each line links to its transaction.</p>
+    <div class="tbl-wrap"><table class="tbl" id="drill-tbl">
+      <thead><tr><th>Attempt</th><th>Result</th><th>What stopped it</th><th>Proof</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="how" class="section">
+    <h2>How it works</h2>
+    <p class="sub">Three parties. Only the owner can take money out.</p>
+    <div class="tiles" data-n="3">
+      <div class="tile">
+        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="6.5" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="11" cy="16" r="2" fill="#b45309"/><path d="M17.5 16H28M24 16v4.5M27.5 16v3" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <h3>Agent key</h3>
+        <p>A function-call key on the vault, limited to supply, withdraw and claim. It cannot send NEAR, call tokens or touch owner methods.</p>
+      </div>
+      <div class="tile">
+        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="21" rx="3" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="16" cy="16.5" r="5" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M16 11.5v2M16 19.5v2M11 16.5h2M19 16.5h2M8 27v2.5M24 27v2.5" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <h3>Vault contract</h3>
+        <p>Approved venues with fixed contracts, a cap per move and per venue, a cooldown, a daily limit, and withdrawals only to the owner.</p>
+      </div>
+      <div class="tile">
+        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5l10.5 4v8c0 6.5-4.4 11.3-10.5 13-6.1-1.7-10.5-6.5-10.5-13v-8z" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 16h10" stroke="#b45309" stroke-width="2.8" stroke-linecap="round"/></svg>
+        <h3>Risk feeder</h3>
+        <p>Blocks a venue or pauses the vault when an exploit or depeg lands. It cannot unblock, add venues or move funds.</p>
+      </div>
+    </div>
+    <details class="method"><summary>The policy rules</summary><div id="policy-rules"></div></details>
+  </section>
+
+  <section id="faq" class="section">
+    <h2>FAQ</h2>
+    <dl class="faq">
+      <dt>What if the agent's key is stolen?</dt>
+      <dd>The thief gets the agent's powers and nothing more: moving capped amounts between the vault and venues the owner approved. NEAR refuses any transfer or method outside the key's list before it runs, and the contract refuses the rest. The owner or risk feeder can delete the key in one call.</dd>
+      <dt>Why does the highest yield get a smaller allocation?</dt>
+      <dd>Rhea Lend pays the most on NEAR, and it lost $18.4M to price manipulation on 16 April 2026 with no funds returned. Its pools are also about 89% lent out, so only a slice can leave at short notice. The policy keeps the venue and cuts the size.</dd>
+      <dt>Is the yield real?</dt>
+      <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
+      <dt>Which network is the vault on?</dt>
+      <dd>The vault and drill shown here run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet.</dd>
+      <dt>Is the code open?</dt>
+      <dd>Yes, MIT licensed: the Rust vault contract, the agent and policy, and the drill.</dd>
+    </dl>
+  </section>
+
+  <p class="sources">Sources: NEAR RPC via FastNEAR, the Rhea Lend, LiNEAR and rNEAR contracts, DefiLlama hacks and prices, NearBlocks for transactions. Built for NEAR HACKATHON 2026.</p>
+</main>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

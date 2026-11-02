@@ -1,0 +1,111 @@
+/* Canonical web3wagmi chrome. Copied from the shared lockup the other properties run
+   (atlas, news, blog, data, campaigns, airdrops) so this subdomain sits in the same family.
+   Keep it identical across every web3wagmi site: two stacked sticky strips, the brand
+   lockup on top and the cross-site menu below, slate and amber, Plus Jakarta Sans with
+   Space Grotesk for display.
+
+   Nothing app-specific belongs in this file. App styling lives in app.css and reads the
+   tokens declared here. */
+
+:root {
+  /* Brand palette, matching news.web3wagmi.com hex for hex. */
+  --bg: #ffffff;
+  --bg2: #f8fafc;
+  --ink: #0f172a;
+  --ink2: #475569;
+  --ink3: #64748b;
+  --line: #e2e8f0;
+  --line2: #f1f5f9;
+  --border-strong: #b9c0cc;
+  --accent: #f59e0b;
+  --accent-ink: #b45309;
+  --accent-tint: #fef6e7;
+  --red: #dc2626;
+  --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --display: "Space Grotesk", var(--font);
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 12px 32px -12px rgba(15, 23, 42, .10);
+
+  /* Chrome heights, read by app.css so the app shell can sit flush under them. */
+  --brand-h: 44px;
+  --nav-h: 44px;
+  --chrome-h: 88px;
+}
+
+.site-brand {
+  font-family: var(--font);
+  background: rgba(255, 255, 255, .85);
+  -webkit-backdrop-filter: saturate(180%) blur(8px);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 101;
+}
+.site-brand-inner {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--brand-h);
+}
+.site-brand-link { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; transition: opacity .15s ease; }
+.site-brand-link:hover { opacity: .85; }
+.site-brand-mark { width: 34px; height: 34px; display: block; flex-shrink: 0; }
+.site-brand-text {
+  font-family: var(--display), -apple-system, sans-serif;
+  font-size: 26px; font-weight: 900; color: var(--ink);
+  letter-spacing: -.5px; line-height: 1;
+}
+.site-brand-text span { color: var(--accent); }
+
+.site-nav {
+  font-family: var(--font);
+  background: rgba(255, 255, 255, .85);
+  -webkit-backdrop-filter: saturate(180%) blur(8px);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px; font-weight: 600;
+  position: sticky;
+  top: var(--brand-h);
+  z-index: 100;
+}
+.site-nav-inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  height: var(--nav-h);
+}
+.site-nav-link {
+  position: relative; color: var(--ink3); text-decoration: none;
+  padding: 5px 18px; text-transform: uppercase; letter-spacing: .14em;
+  transition: color .15s ease;
+}
+.site-nav-link:hover { color: var(--ink); }
+.site-nav-link.active { color: var(--accent-ink); }
+/* Amber underline keyed to the active page, sized to the text rather than the padding. */
+.site-nav-link.active::before {
+  content: ""; position: absolute; left: 18px; right: 18px; bottom: -1px;
+  height: 2px; border-radius: 2px; background: var(--accent);
+}
+.site-nav-dot { color: var(--ink3); opacity: .45; font-size: 11px; line-height: 1; user-select: none; pointer-events: none; }
+
+/* A visible focus ring on the chrome, since the app rule applies only inside the app shell. */
+.site-brand-link:focus-visible,
+.site-nav-link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: 4px; }
+
+@media (max-width: 640px) {
+  :root { --brand-h: 36px; --nav-h: 36px; --chrome-h: 72px; }
+  .site-brand-inner { padding: 0 12px; }
+  .site-brand-mark { width: 24px; height: 24px; }
+  .site-brand-text { font-size: 18px; }
+  .site-nav-inner { padding: 0 8px; justify-content: center; }
+  .site-nav-link { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; font-size: 11px; letter-spacing: .1em; }
+  .site-nav-link.active::before { left: 11px; right: 11px; }
+}
+@media (max-width: 380px) {
+  .site-nav-link { padding: 6px 8px; font-size: 10px; letter-spacing: .06em; }
+  .site-nav-link.active::before { left: 8px; right: 8px; }
+}

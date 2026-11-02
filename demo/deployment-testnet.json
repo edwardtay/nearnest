@@ -1,0 +1,25 @@
+{
+  "network": "testnet",
+  "vault": "v2.nearnest-mvz1l0ba.testnet",
+  "owner": "nearnest-mvz1l0ba.testnet",
+  "feeder": "risk.nearnest-mvz1l0ba.testnet",
+  "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
+  "setup_txs": {
+    "vault_create_deploy_init": "https://testnet.nearblocks.io/txns/E2LemS8sE99uksuXMJZVHmHML3kH7SuCmzVN6bxKMLUe",
+    "set_risk_feeder": "https://testnet.nearblocks.io/txns/BxcFeKv7xxSAhTpvyDLMb9ZNtrYEWq1V7uobjSpHtQMV",
+    "add_venue_burrow_usdc": "https://testnet.nearblocks.io/txns/6HEtoycjie1jFDdYF3sFFHXR6dp2Q11vRumfGAasNZZp",
+    "add_venue_linear": "https://testnet.nearblocks.io/txns/6krXkkS46j5BLQ6s7rDF1We3Kc4FVKisyVczyBetythD",
+    "max_move_usdc": "https://testnet.nearblocks.io/txns/B9YY4F8VXCtqfg9KTMeE8kjfzVx7QfmkraCxbatK3TLg",
+    "max_move_near": "https://testnet.nearblocks.io/txns/2hYyefsBNB6qhBxz528scNiytJ9JDRyA6fMHpftZbTdd",
+    "storage_burrow": "https://testnet.nearblocks.io/txns/JeJK8frRGUcDeb2D7zKpQ1qQLrPYxzfVGdAiA8srYiN",
+    "storage_usdc": "https://testnet.nearblocks.io/txns/Cp46sVi91Z1exbZKNmm6bQCf3sZjsSa1jamRVEEkS4Tj",
+    "add_agent_key": "https://testnet.nearblocks.io/txns/CXXusS4JnaPNhD5X5AZT6WWYZmsDKVLezxCMh1EWn5xi",
+    "mint_usdc": "https://testnet.nearblocks.io/txns/72qEUXcptjN6wv85g4fjZLoa8UKB15oNpqar2RDNrZee"
+  },
+  "retired": [
+    {
+      "vault": "vault.nearnest-mvz1l0ba.testnet",
+      "note": "built without --cfg near: rejections trap without messages"
+    }
+  ]
+}

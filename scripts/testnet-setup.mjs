@@ -34,7 +34,7 @@ if (!s.agentKey) { s.agentKey = newKey(); saveState(net, s); }
 // 3. Vault: create + fund + deploy + init in ONE transaction signed by the owner.
 //    No access key is ever added to the vault account, so nobody can redeploy it.
 if (!s.vault) {
-  const id = `vault.${s.owner}`;
+  const id = `${process.env.VAULT_NAME || "vault"}.${s.owner}`;
   const o = await owner.signAndSendTransaction({
     receiverId: id,
     actions: [
