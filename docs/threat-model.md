@@ -23,9 +23,9 @@ The vault account has no full-access key. Its code changes only through the owne
 | 4 | Stolen key supplies into an attacker's pool | contract: venue must be approved; venue contracts are fixed at approval | `unknown-venue` |
 | 5 | Stolen key moves everything at once | contract: per-move cap | `over-cap` |
 | 6 | Stolen key fills a risky venue past the policy's size | contract: risk cap set by the feeder from the policy | `over-risk-cap` |
-| 7 | Stolen key churns the vault | contract: cooldown and daily move limit | `cooldown` |
-| 8 | Stolen key supplies into a hacked venue | contract: blocked venues refuse supply | `supply-blocked` |
-| 9 | Compromised feeder loosens limits | contract: the feeder can only lower caps and cannot unblock | `feeder-raises-cap`, `feeder-unblock` |
+| 7 | Stolen key churns the vault | contract: cooldown and daily move limit | `cooldown`, `daily-limit` |
+| 8 | Stolen key supplies into a hacked venue | contract: blocked venues refuse supply; a paused vault refuses all supply, and exits still work | `supply-blocked`, `supply-paused`, `exit-paused` |
+| 9 | Compromised feeder loosens limits | contract: the feeder can only lower caps and cannot unblock or unpause | `feeder-raises-cap`, `feeder-unblock`, `feeder-unpause` |
 | 10 | Agent key keeps acting after compromise is noticed | feeder or owner deletes the key | `kill-switch`, `dead-key` |
 | 11 | Funds stuck in a venue after the key is gone | feeder or owner exits without the agent | `guardian-exit` |
 | 12 | Books drift from what the venue holds (failed or partial exit, interest) | position re-read from the venue's `get_account` after every exit and claim | covered by unit tests; positions on the Vault view include interest |
