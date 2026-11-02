@@ -9,6 +9,7 @@ const pct = (x) => `${(x * 100).toFixed(2)}%`;
 const num = (x, d = 2) => Number(x).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 
 const LOGO = {
+  // keyed by protocol name and by testnet contract
   'Rhea Lend': '/img/rhea.png',
   'Rhea LST': '/img/rhea.png',
   LiNEAR: '/img/linear.png',
@@ -154,6 +155,25 @@ function renderDrill(d) {
   }).join('');
 }
 
+// ---------------------------------------------------------------- agent moves
+
+const VENUE_NAME = { 'burrow-usdc': 'Burrow USDC', linear: 'LiNEAR' };
+const VERB = { supply: 'Supplied to', withdraw: 'Withdrew from', block: 'Blocked' };
+function renderMoves(a) {
+  const rows = [...a.moves].reverse().map((m) => {
+    const token = m.venue === 'linear' ? 'near' : 'usdc';
+    const amt = m.amount ? `${units(m.amount, token)} ${token === 'near' ? 'NEAR' : 'USDC'}` : '';
+    const pill = `<span class="pill ${m.verdict}">${VERDICT[m.verdict]}</span>`;
+    const why = m.reasons.length ? `<ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : 'No flags.';
+    const tgt = m.target ? `<div class="note">Target ${units(m.target, token)}, from mainnet ${esc(m.mirrors === 'rhea-usdc' ? 'Rhea Lend USDC' : m.mirrors === 'linear' ? 'LiNEAR' : m.mirrors)} at ${pct(m.apr)}</div>` : '';
+    return `<tr><th scope="row">${ent(`${VERB[m.kind] || m.kind} ${VENUE_NAME[m.venue] || m.venue}`, LOGO[m.venue === 'linear' ? 'LiNEAR' : 'Rhea Lend'], new Date(m.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')}</th>
+      <td class="n">${amt}</td><td class="why"><div class="vd">${pill}</div>${why}${tgt}</td>
+      <td>${m.ok ? `<a href="${esc(m.tx)}">Transaction</a>` : `Refused: ${esc(cleanReason(m.reason))}`}</td></tr>`;
+  });
+  $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
+  $('#moves-foot').textContent = `The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Run scripts/run-agent.mjs to make the next move.`;
+}
+
 // ---------------------------------------------------------- section nav spy
 
 function spy() {
@@ -172,4 +192,5 @@ $('#rescan').addEventListener('click', loadScan);
 spy();
 loadScan();
 getJSON('/api/vault').then(renderVault).catch((e) => { $('#vault-sub').textContent = `Could not read the vault: ${e.message}`; });
+getJSON('/api/agent').then(renderMoves).catch(() => { $('#moves-tbl tbody').innerHTML = '<tr><td colspan="4" class="loading">No moves yet.</td></tr>'; });
 getJSON('/api/drill').then(renderDrill).catch(() => {});

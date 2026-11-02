@@ -1,7 +1,8 @@
-/* NEARnest site: static page plus three JSON endpoints. No dependencies.
+/* NEARnest site: static page plus four JSON endpoints. No dependencies.
      /api/scan    live mainnet venues judged by the policy (cached 10 min)
      /api/vault   live read of the deployed vault: keys, balances, venues, positions
      /api/drill   recorded compromised-agent drill with transaction links
+     /api/agent   moves the agent made, with the policy reasons and transaction links
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -66,6 +67,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/scan') return send(res, 200, await cached('scan', 600_000, () => buildReport()));
     if (url.pathname === '/api/vault') return send(res, 200, await cached(`vault-${NET}`, 15_000, () => vaultSnapshot(NET)));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
+    if (url.pathname === '/api/agent') return send(res, 200, await readFile(path.join(DIR, 'demo', `agent-${NET}.json`)));
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
     let p = decodeURIComponent(url.pathname);
     if (p.endsWith('/')) p += 'index.html';

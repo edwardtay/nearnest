@@ -70,6 +70,7 @@
   <div class="wrap toc-in">
     <a href="#yield" aria-current="true">Yield, judged</a>
     <a href="#vault">The vault</a>
+    <a href="#moves">Agent moves</a>
     <a href="#drill">Attack drill</a>
     <a href="#how">How it works</a>
     <a href="#faq">FAQ</a>
@@ -117,6 +118,16 @@
     </table></div>
   </section>
 
+  <section id="moves" class="section">
+    <h2>Agent moves</h2>
+    <p class="sub">What the agent did with the vault, each move sized by the policy and signed with the agent key.</p>
+    <div class="tbl-wrap"><table class="tbl" id="moves-tbl">
+      <thead><tr><th>Move</th><th class="n">Amount</th><th>Policy at the time</th><th>Proof</th></tr></thead>
+      <tbody><tr><td colspan="4" class="loading">Reading the agent log…</td></tr></tbody>
+    </table></div>
+    <p class="foot" id="moves-foot"></p>
+  </section>
+
   <section id="drill" class="section">
     <h2>Attack drill</h2>
     <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money. Each line links to its transaction.</p>
@@ -159,7 +170,7 @@
       <dt>Is the yield real?</dt>
       <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
       <dt>Which network is the vault on?</dt>
-      <dd>The vault and drill shown here run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet.</dd>
+      <dd>The vault, the agent moves and the drill run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet, and the agent sizes its testnet moves from those mainnet judgements.</dd>
       <dt>Is the code open?</dt>
       <dd>Yes, MIT licensed: the Rust vault contract, the agent and policy, and the drill.</dd>
     </dl>
