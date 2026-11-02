@@ -1,6 +1,6 @@
 // Live inputs for each venue: yield, exit liquidity, venue switches, prices, incidents.
 import fs from 'node:fs';
-import { view, block } from './near.mjs';
+import { view, block, TIMEOUT_MS } from './near.mjs';
 
 const DAY = 86_400_000;
 
@@ -54,7 +54,7 @@ export async function lstVenue(contract, priceMethod) {
 
 export async function prices(ids) {
   if (!ids.length) return {};
-  const r = await fetch(`https://coins.llama.fi/prices/current/${ids.join(',')}`);
+  const r = await fetch(`https://coins.llama.fi/prices/current/${ids.join(',')}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   const j = await r.json();
   return Object.fromEntries(Object.entries(j.coins || {}).map(([k, v]) => [k, v.price]));
 }
@@ -64,7 +64,8 @@ const NOTES = JSON.parse(fs.readFileSync(new URL('./incident-notes.json', import
 
 /** Incidents from DefiLlama's public hacks feed, matched by protocol name, with sourced corrections applied. */
 export async function incidents() {
-  const r = await fetch('https://api.llama.fi/hacks');
+  const r = await fetch('https://api.llama.fi/hacks', { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!r.ok) throw new Error(`hacks feed ${r.status}`);
   const all = await r.json();
   return all.map((h) => withNote({
     name: h.name,

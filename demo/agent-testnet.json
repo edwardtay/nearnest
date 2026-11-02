@@ -2,7 +2,12 @@
   "network": "testnet",
   "vault": "v2.nearnest-mvz1l0ba.testnet",
   "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
-  "updated_at": "2026-11-02T18:00:15.307Z",
+  "updated_at": "2026-11-02T18:03:38.138Z",
+  "last_run": {
+    "at": "2026-11-02T18:03:38.138Z",
+    "result": "nothing to do: waiting for idle funds",
+    "scenario": null
+  },
   "mirror": {
     "burrow-usdc": "rhea-usdc",
     "linear": "linear"

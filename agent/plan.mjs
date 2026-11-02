@@ -26,8 +26,11 @@ export function spendableNative(acct) {
  * @returns steps sorted: blocks and cap cuts, then exits and claims, then supplies by
  *          best base rate, then holds
  */
-export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy') {
+export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy', vault = null) {
   const steps = [];
+  // Supplies the contract would refuse right now become holds with the reason.
+  const supplyStop = vault?.paused ? 'vault paused by the risk feeder or owner'
+    : vault && vault.moves_today >= vault.policy.max_moves_per_day && Date.now() * 1e6 < Number(vault.day_start_ns) + 86_400e9 ? 'daily move limit reached' : null;
   const budget = { ...idle }; // supplies of the same token share one idle balance
   const ordered = [...venues].sort((a, b) => apr(report, mirror, b) - apr(report, mirror, a));
   for (const v of ordered) {
@@ -63,7 +66,8 @@ export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy')
       steps.push({ ...base, kind: 'withdraw', amount: min(pos - want, moveCap), prio: 1 });
     } else if (want > exposure && want - exposure >= floor && !blocked && v.venue.enabled !== false) {
       const amt = min(min(want - exposure, moveCap), budget[v.venue.token] ?? 0n);
-      if (amt >= floor) {
+      if (supplyStop) steps.push({ ...base, kind: 'hold', note: supplyStop, prio: 3 });
+      else if (amt >= floor) {
         steps.push({ ...base, kind: 'supply', amount: amt, prio: 2 });
         budget[v.venue.token] = (budget[v.venue.token] ?? 0n) - amt;
       } else steps.push({ ...base, kind: 'hold', note: 'waiting for idle funds', prio: 3 });

@@ -84,7 +84,7 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
-# policy, planner, scenario and contract tests (26 JS, 25 Rust)
+# policy, planner, scenario and contract tests (27 JS, 25 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -98,7 +98,8 @@ cd contract && ./build.sh && cd ..
 cd scripts && npm install
 node testnet-setup.mjs         # keys are written to ../keys/testnet.json (gitignored, mode 600)
 node run-agent.mjs --dry       # print the plan
-node run-agent.mjs --loop      # make the moves, waiting out the vault cooldown
+node run-agent.mjs --loop      # make the moves, waiting out the vault cooldown; risk is re-read before every signature
+node run-agent.mjs --watch 30  # run again every 30 minutes in the foreground
 node run-agent.mjs --scenario usdc-depeg   # respond to a simulated event for real
 node owner-unblock.mjs burrow-usdc         # owner reopens the venue afterwards
 node owner-upgrade.mjs                     # owner deploys new vault code, then syncs positions

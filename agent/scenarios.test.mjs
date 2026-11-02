@@ -120,3 +120,14 @@ test('two supplies of one token share the idle balance', () => {
   const sup = steps.filter((s) => s.kind === 'supply');
   assert.equal(sup.reduce((a, s) => a + s.amount, 0n) <= 5n * E6, true);
 });
+
+test('a paused vault or a used-up day turns supplies into holds', () => {
+  const i = scenario('year-later').apply(inputs());
+  const paused = { paused: true, moves_today: 0, day_start_ns: '0', policy: { max_moves_per_day: 10 } };
+  const s1 = planMoves(judgeInputs(i), venues, { usdc: 50n * E6, near: 0n }, undefined, 'policy', paused);
+  assert.equal(s1.some((s) => s.kind === 'supply'), false);
+  assert.ok(s1.some((s) => s.note === 'vault paused by the risk feeder or owner'));
+  const full = { paused: false, moves_today: 10, day_start_ns: String(BigInt(Date.now()) * 1_000_000n), policy: { max_moves_per_day: 10 } };
+  const s2 = planMoves(judgeInputs(i), venues, { usdc: 50n * E6, near: 0n }, undefined, 'policy', full);
+  assert.ok(s2.some((s) => s.note === 'daily move limit reached'));
+});

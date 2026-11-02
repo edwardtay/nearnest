@@ -289,7 +289,8 @@ function renderMoves(a) {
       <td>${m.ok ? `<a href="${esc(m.tx)}">Transaction</a>` : `Refused: ${esc(cleanReason(m.reason))}`}</td></tr>`;
   });
   $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
-  $('#moves-foot').textContent = 'The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR.';
+  const lr = a.last_run ? `Last agent run ${new Date(a.last_run.at).toISOString().slice(0, 16).replace('T', ' ')} UTC: ${a.last_run.result}. ` : '';
+  $('#moves-foot').textContent = `${lr}The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Every round reads mainnet risk again before the agent signs.`;
 }
 
 // ------------------------------------------------------------------ what if

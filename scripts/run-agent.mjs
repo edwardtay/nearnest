@@ -6,9 +6,11 @@
 // The testnet vault mirrors mainnet venues: its Burrow testnet market takes the
 // judgement of Rhea Lend USDC on mainnet, its LiNEAR testnet venue takes LiNEAR's.
 //
-// Usage: node run-agent.mjs [testnet] [--dry] [--loop] [--scenario <id>]
+// Usage: node run-agent.mjs [testnet] [--dry] [--loop] [--scenario <id>] [--watch <min>]
 //   --dry       print the plan, sign nothing
 //   --loop      keep going (waiting out the cooldown) until the plan is empty
+//   --watch     run again every <min> minutes (a foreground process, nothing scheduled)
+//   Every round reads mainnet risk again before it signs; a failed read signs nothing.
 //   --scenario  apply a what-if event (agent/scenarios.mjs) to the live mainnet read
 //               first, so the vault responds to it for real; owner-unblock.mjs undoes it
 import fs from 'node:fs';
@@ -62,7 +64,7 @@ async function plan(report) {
     }
   }
   // Reads use final finality, a block or two behind; skip cap changes this run already sent.
-  return { vault, steps: planMoves(report, venues, idle, undefined, SC ? `simulated ${SC.id}` : 'policy').filter((p) => !sentThisRun.has(`${p.kind} ${p.venue}`)) };
+  return { vault, steps: planMoves(report, venues, idle, undefined, SC ? `simulated ${SC.id}` : 'policy', vault).filter((p) => !sentThisRun.has(`${p.kind} ${p.venue}`)) };
 }
 
 const fmtStep = (p) => {
@@ -83,44 +85,78 @@ async function execute(step) {
   return { ok: !fail, reason: fail, tx: `${ex}/txns/${o.transaction.hash}` };
 }
 
-const log = [];
 const sentThisRun = new Set();
-const live = await readInputs();
-const report = judgeInputs(SC ? SC.apply(live) : live);
-console.log(`mainnet read ${report.generated_at}${SC ? `\nscenario: ${SC.title}. ${SC.story}` : ''}`);
-for (const v of report.venues) console.log(`  ${v.id.padEnd(10)} ${(v.live.apr_base * 100).toFixed(2)}%  ${v.judgement.verdict}`);
+const WATCH_MIN = args.includes('--watch') ? Number(args[args.indexOf('--watch') + 1]) || 30 : 0;
 
-for (let round = 0; round < 12; round++) {
-  const { vault, steps } = await plan(report);
-  console.log(`\nplan (round ${round + 1}):`);
-  for (const p of steps) console.log(`  ${fmtStep(p)}`);
-  const next = steps.find((p) => p.kind !== 'hold');
-  if (!next || DRY) { if (!next) console.log(steps.some((p) => p.note === 'waiting for idle funds') ? '\nnothing more to do: the rest waits for idle funds' : '\nnothing to do: every venue is at its policy target'); break; }
-
-  // Supplies wait out the cooldown; exits and blocks never wait.
-  if (next.kind === 'supply' && vault.last_move_ns) {
-    const waitMs = cooldownLeft(vault) + (cooldownLeft(vault) ? 3000 : 0);
-    if (waitMs > 0) {
-      if (!LOOP) { console.log(`\ncooldown: next supply allowed in ${Math.ceil(waitMs / 1000)}s (run with --loop to wait)`); break; }
-      console.log(`\nwaiting ${Math.ceil(waitMs / 1000)}s for the vault cooldown`);
-      await new Promise((r) => setTimeout(r, waitMs));
-    }
+/** Fresh mainnet read and judgement. Called before every signature, never reused. */
+async function judgeNow(first) {
+  const live = await readInputs();
+  const report = judgeInputs(SC ? SC.apply(live) : live);
+  if (first) {
+    console.log(`mainnet read ${report.generated_at}${SC ? `\nscenario: ${SC.title}. ${SC.story}` : ''}`);
+    for (const v of report.venues) console.log(`  ${v.id.padEnd(10)} ${(v.live.apr_base * 100).toFixed(2)}%  ${v.judgement.verdict}`);
   }
-  const r = await execute(next);
-  if ((next.kind === 'block' || next.kind === 'tighten' || next.kind === 'claim') && r.ok) sentThisRun.add(`${next.kind} ${next.venue}`);
-  console.log(`${r.ok ? 'done' : 'REFUSED'}  ${next.kind} ${next.venue}  ${r.tx}${r.reason ? `\n  ${r.reason}` : ''}`);
-  log.push({ at: new Date().toISOString(), scenario: SC?.id ?? null, kind: next.kind, venue: next.venue, mirrors: next.mirrors, verdict: next.verdict,
-    apr: next.apr, reasons: next.reasons, amount: next.amount != null ? String(next.amount) : null,
-    target: next.want != null ? String(next.want) : null, signer: SIGNER_OF[next.kind], ok: r.ok, reason: r.reason, tx: r.tx });
-  if (!LOOP && next.kind === 'supply') break;
+  return report;
 }
 
-if (!DRY && log.length) {
+async function runOnce() {
+  const log = [];
+  sentThisRun.clear();
+  let result = 'nothing to do';
+  try {
+    for (let round = 0; round < 12; round++) {
+      const report = await judgeNow(round === 0);
+      const { vault, steps } = await plan(report);
+      console.log(`\nplan (round ${round + 1}):`);
+      for (const p of steps) console.log(`  ${fmtStep(p)}`);
+      const next = steps.find((p) => p.kind !== 'hold');
+      if (!next || DRY) {
+        if (!next) {
+          const why = steps.find((p) => p.note && p.note !== 'at target')?.note;
+          result = why ? `nothing to do: ${why}` : 'nothing to do: every venue is at its policy target';
+          console.log(`\n${result}`);
+        }
+        break;
+      }
+      // Supplies wait out the cooldown, then plan again from a fresh read; exits never wait.
+      if (next.kind === 'supply' && cooldownLeft(vault) > 0) {
+        const waitMs = cooldownLeft(vault) + 3000;
+        if (!LOOP) { result = `cooldown: next supply in ${Math.ceil(waitMs / 1000)}s`; console.log(`\n${result} (run with --loop to wait)`); break; }
+        console.log(`\nwaiting ${Math.ceil(waitMs / 1000)}s for the vault cooldown, then reading risk again`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      const r = await execute(next);
+      if ((next.kind === 'block' || next.kind === 'tighten' || next.kind === 'claim') && r.ok) sentThisRun.add(`${next.kind} ${next.venue}`);
+      console.log(`${r.ok ? 'done' : 'REFUSED'}  ${next.kind} ${next.venue}  ${r.tx}${r.reason ? `\n  ${r.reason}` : ''}`);
+      log.push({ at: new Date().toISOString(), scenario: SC?.id ?? null, kind: next.kind, venue: next.venue, mirrors: next.mirrors, verdict: next.verdict,
+        apr: next.apr, reasons: next.reasons, amount: next.amount != null ? String(next.amount) : null,
+        target: next.want != null ? String(next.want) : null, signer: SIGNER_OF[next.kind], ok: r.ok, reason: r.reason, tx: r.tx });
+      result = `made ${log.length} move(s)`;
+      if (!r.ok) break; // a refusal means the plan and the chain disagree: stop and re-read next run
+      if (!LOOP && next.kind === 'supply') break;
+    }
+  } catch (e) {
+    // A failed or slow read signs nothing.
+    result = `read failed, signed nothing: ${String(e.message || e).slice(0, 200)}`;
+    console.log(`\n${result}`);
+  }
+  if (DRY) return;
   const file = path.join(ROOT, 'demo', `agent-${net}.json`);
-  let prev = [];
-  try { prev = JSON.parse(fs.readFileSync(file, 'utf8')).moves || []; } catch {}
-  const out = { network: net, vault: s.vault, agent_key: s.agentKey.public, updated_at: new Date().toISOString(),
-    mirror: MIRROR, moves: [...prev, ...log].slice(-50) };
+  let prev = {};
+  try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+  const now = new Date().toISOString();
+  const out = { network: net, vault: s.vault, agent_key: s.agentKey.public, updated_at: now,
+    last_run: { at: now, result, scenario: SC?.id ?? null }, mirror: MIRROR, moves: [...(prev.moves || []), ...log].slice(-50) };
   fs.writeFileSync(file, JSON.stringify(out, null, 2));
-  console.log(`\nlogged ${log.length} move(s) to demo/agent-${net}.json`);
+  console.log(`\nlogged ${log.length} move(s) and the run result to demo/agent-${net}.json`);
+}
+
+await runOnce();
+// --watch N: run again every N minutes, each time from a fresh read. A foreground
+// process you start and stop; nothing is scheduled.
+while (WATCH_MIN > 0) {
+  console.log(`\nnext run in ${WATCH_MIN} min`);
+  await new Promise((r) => setTimeout(r, WATCH_MIN * 60_000));
+  await runOnce();
 }

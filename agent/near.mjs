@@ -1,12 +1,15 @@
 // Minimal keyless NEAR RPC reads. No dependencies.
 const RPC = process.env.NEAR_RPC || 'https://free.rpc.fastnear.com';
 const ARCHIVAL = process.env.NEAR_ARCHIVAL_RPC || 'https://archival-rpc.mainnet.fastnear.com';
+// A stalled source must fail the read, so the agent signs nothing on stale or missing data.
+export const TIMEOUT_MS = 20_000;
 
 async function rpc(url, method, params) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 'nearnest', method, params }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   const j = await res.json();
   if (j.error) throw new Error(`${method}: ${JSON.stringify(j.error).slice(0, 300)}`);

@@ -87,15 +87,15 @@ async function whatIf(net, id) {
   return {
     ...scenarioMeta(s), network: net, read_at: snap.read_at, scan_at: before.generated_at,
     venues: before.venues.map((v, k) => ({ id: v.id, label: v.label, symbol: v.symbol, apr: v.live.apr_base, before: pick(v), after: pick(after.venues[k]) })),
-    plan_before: planMoves(before, snap.venues, idle).map(stepJSON),
-    plan_after: planMoves(after, snap.venues, idle).map(stepJSON),
+    plan_before: planMoves(before, snap.venues, idle, undefined, 'policy', snap.vault).map(stepJSON),
+    plan_after: planMoves(after, snap.venues, idle, undefined, 'policy', snap.vault).map(stepJSON),
   };
 }
 
 async function nextPlan(net) {
   const [report, snap] = await Promise.all([scan(), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
   const idle = idleOf(snap);
-  const steps = planMoves(report, snap.venues, idle).map(stepJSON);
+  const steps = planMoves(report, snap.venues, idle, undefined, 'policy', snap.vault).map(stepJSON);
   return { network: net, read_at: snap.read_at, scan_at: report.generated_at, cooldown_ms: cooldownLeft(snap.vault),
     idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
 }
