@@ -94,6 +94,36 @@ async function nextPlan(net) {
     idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
 }
 
+/* SimpleAnalytics, first-party, as every web3wagmi property runs it (same handler as web3wagmi-tx). /proxy.js is SA's script compiled with this host as its beacon base, and /simple/*
+   carries the beacons to SA's queue, so blockers that drop third-party analytics hosts see only
+   this origin. Reporting under web3wagmi.com is set by data-hostname in index.html. */
+async function analytics(req, res, url) {
+  if (url.pathname === '/proxy.js') {
+    const r = await fetch('https://simpleanalyticsexternal.com/proxy.js?hostname=' + encodeURIComponent(url.hostname) + '&path=/simple');
+    res.writeHead(r.status, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=3600' });
+    res.end(Buffer.from(await r.arrayBuffer()));
+    return true;
+  }
+  if (url.pathname.startsWith('/simple/')) {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const headers = {};
+    for (const h of ['content-type', 'user-agent', 'accept-language', 'referer']) if (req.headers[h]) headers[h] = req.headers[h];
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    if (ip) headers['x-forwarded-for'] = ip;
+    const r = await fetch('https://queue.simpleanalyticscdn.com/' + url.pathname.slice('/simple/'.length) + url.search, {
+      method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks),
+    });
+    const out = { 'cache-control': 'no-store' };
+    const ct = r.headers.get('content-type');
+    if (ct) out['content-type'] = ct;
+    res.writeHead(r.status, out);
+    res.end(Buffer.from(await r.arrayBuffer()));
+    return true;
+  }
+  return false;
+}
+
 function send(res, status, body, type = 'application/json; charset=utf-8', extra = {}) {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
@@ -102,6 +132,7 @@ function send(res, status, body, type = 'application/json; charset=utf-8', extra
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
+    if (await analytics(req, res, url)) return;
     if (url.pathname === '/api/scan') return send(res, 200, await scan());
     if (url.pathname === '/api/scenarios') return send(res, 200, SCENARIOS.map(scenarioMeta));
     if (url.pathname === '/api/scenario') {
