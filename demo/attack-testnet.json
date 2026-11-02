@@ -1,0 +1,109 @@
+{
+  "network": "testnet",
+  "vault": "vault.nearnest-mvz1l0ba.testnet",
+  "owner": "nearnest-mvz1l0ba.testnet",
+  "feeder": "risk.nearnest-mvz1l0ba.testnet",
+  "agent_key": "ed25519:JBopMB76jXWnxnYY4fDLjYsViQpL4MTQbATZArUQwGa1",
+  "ran_at": "2026-11-02T09:15:55.525Z",
+  "results": [
+    {
+      "name": "send-native-near",
+      "intent": "Transfer 1 NEAR from the vault to the attacker",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "NotEnoughAllowance: Access Key {account_id}:{public_key} does not have enough balance 0.5 for transaction costing 1.00024550081875",
+      "tx": null,
+      "pass": true
+    },
+    {
+      "name": "call-owner-withdraw",
+      "intent": "Call owner_withdraw with the agent key",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "MethodNameMismatch: Transaction method name owner_withdraw isn't allowed by the access key",
+      "tx": null,
+      "pass": true
+    },
+    {
+      "name": "call-token-directly",
+      "intent": "Call ft_transfer on the USDC contract as the vault",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "DepositWithFunctionCall: {}",
+      "tx": null,
+      "pass": true
+    },
+    {
+      "name": "unknown-venue",
+      "intent": "Supply into a venue the owner never approved",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/7JHpxLibK1iknbBFCSJJ8njjXFVXEiTRJmm1PT4PVg2g",
+      "pass": true
+    },
+    {
+      "name": "over-cap",
+      "intent": "Supply 25 USDC when the per-move cap is 20",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/2c7G5DhJa5pkMbxNsKmthNkjuQeBGsASJ2u2UzKzV5a7",
+      "pass": true
+    },
+    {
+      "name": "legit-supply",
+      "intent": "Supply 10 USDC to the approved lending venue",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/8qqRrmwDNKomhRQKHscyNVTPm4WmiochpaxdTmKRWXUa",
+      "pass": true
+    },
+    {
+      "name": "cooldown",
+      "intent": "Supply again straight away",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/BtcC8HbRBe9uf4nJ898d2SAdcrHj42GXacKbU4xkhb1p",
+      "pass": true
+    },
+    {
+      "name": "feeder-blocks",
+      "intent": "Risk feeder blocks the venue with a reason",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/HEKcwyDS1mX7Ebi6wA4BniQz2cEehbsjXojxuce8ymHi",
+      "pass": true
+    },
+    {
+      "name": "supply-blocked",
+      "intent": "Supply into the blocked venue",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/FfwwxbJD4grncLijabmJVi2HVBChQ2wvDtawSCwt4kFU",
+      "pass": true
+    },
+    {
+      "name": "exit-blocked",
+      "intent": "Withdraw from the blocked venue back to the vault",
+      "expect": "executed",
+      "outcome": "executed",
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/4U3W2mqVC5L32bHDx2rUo5QsvgXqD71WGfxtKJ4DT5mi",
+      "pass": true
+    },
+    {
+      "name": "feeder-unblock",
+      "intent": "Risk feeder tries to unblock (owner only)",
+      "expect": "rejected",
+      "outcome": "rejected",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"WebAssembly trap: An `unreachable` opcode was executed.\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/GCMqUDdJEoA19Dsi5729dMFeLU7TsgGRUjEgDCdZV5cg",
+      "pass": true
+    }
+  ]
+}

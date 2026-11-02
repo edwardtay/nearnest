@@ -1,0 +1,9 @@
+{
+  "name": "nearnest-scripts",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "near-api-js": "^5.1.1"
+  }
+}

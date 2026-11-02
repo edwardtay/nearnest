@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+// Compromised-agent drill. Holds the REAL agent key and tries to steal or misuse the
+// vault's money, then makes one legitimate move. Every attempt is recorded with its
+// on-chain evidence to ../demo/attack-<net>.json (no secrets in that file).
+import fs from 'node:fs';
+import path from 'node:path';
+import { transactions } from 'near-api-js';
+import { loadState, near, TGAS, NEAR, NET, ROOT } from './lib.mjs';
+
+const net = process.argv[2] || 'testnet';
+const s = loadState(net);
+// The agent key signs as the vault account (it is a function-call key on it).
+const nc = await near(net, { signers: { [s.vault]: s.agentKey.secret, [s.feeder]: s.signers[s.feeder] } });
+const agent = await nc.account(s.vault);
+const feeder = await nc.account(s.feeder);
+const ex = NET[net].explorer;
+const results = [];
+
+function failureText(o) {
+  const all = [o.status, ...o.receipts_outcome.map((r) => r.outcome.status)];
+  for (const st of all) if (st?.Failure) return JSON.stringify(st.Failure).replace(/\\"/g, '"').slice(0, 300);
+  return null;
+}
+
+async function attempt(name, intent, expect, fn) {
+  let rec = { name, intent, expect };
+  try {
+    const o = await fn();
+    const fail = failureText(o);
+    rec = { ...rec, outcome: fail ? 'rejected' : 'executed', reason: fail, tx: `${ex}/txns/${o.transaction.hash}` };
+  } catch (e) {
+    // Rejected before reaching the chain: the access key itself forbids the action.
+    rec = { ...rec, outcome: 'rejected', reason: (e.type ? `${e.type}: ` : '') + String(e.message).slice(0, 300), tx: null };
+  }
+  rec.pass = rec.outcome === expect;
+  results.push(rec);
+  console.log(`${rec.pass ? 'PASS' : 'FAIL'}  ${name}: ${rec.outcome}${rec.reason ? `  (${rec.reason.slice(0, 140)})` : ''}`);
+  if (rec.tx) console.log(`      ${rec.tx}`);
+}
+
+const fc = (method, args, deposit = 0n) => transactions.functionCall(method, args, 150n * TGAS, deposit);
+const send = (actor, receiverId, actions) => actor.signAndSendTransaction({ receiverId, actions, returnError: true });
+const usdc = (n) => String(n * 1e6);
+
+await attempt('send-native-near', 'Transfer 1 NEAR from the vault to the attacker', 'rejected',
+  () => send(agent, 'attacker.testnet', [transactions.transfer(NEAR(1))]));
+await attempt('call-owner-withdraw', 'Call owner_withdraw with the agent key', 'rejected',
+  () => send(agent, s.vault, [fc('owner_withdraw', { token: 'usdc.fakes.testnet', amount: usdc(60) })]));
+await attempt('call-token-directly', 'Call ft_transfer on the USDC contract as the vault', 'rejected',
+  () => send(agent, 'usdc.fakes.testnet', [fc('ft_transfer', { receiver_id: 'attacker.testnet', amount: usdc(60) }, 1n)]));
+await attempt('unknown-venue', 'Supply into a venue the owner never approved', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'attacker-pool', amount: usdc(10) })]));
+await attempt('over-cap', 'Supply 25 USDC when the per-move cap is 20', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(25) })]));
+await attempt('legit-supply', 'Supply 10 USDC to the approved lending venue', 'executed',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(10) })]));
+await attempt('cooldown', 'Supply again straight away', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(5) })]));
+await attempt('feeder-blocks', 'Risk feeder blocks the venue with a reason', 'executed',
+  () => send(feeder, s.vault, [fc('block_venue', { venue_id: 'burrow-usdc', reason: 'drill: venue exploited via spot price manipulation' })]));
+await attempt('supply-blocked', 'Supply into the blocked venue', 'rejected',
+  () => send(agent, s.vault, [fc('agent_supply', { venue_id: 'burrow-usdc', amount: usdc(5) })]));
+await attempt('exit-blocked', 'Withdraw from the blocked venue back to the vault', 'executed',
+  () => send(agent, s.vault, [fc('agent_withdraw', { venue_id: 'burrow-usdc', amount: usdc(10) })]));
+await attempt('feeder-unblock', 'Risk feeder tries to unblock (owner only)', 'rejected',
+  () => send(feeder, s.vault, [fc('unblock_venue', { venue_id: 'burrow-usdc' })]));
+
+const out = { network: net, vault: s.vault, owner: s.owner, feeder: s.feeder, agent_key: s.agentKey.public, ran_at: new Date().toISOString(), results };
+fs.writeFileSync(path.join(ROOT, 'demo', `attack-${net}.json`), JSON.stringify(out, null, 2));
+const passed = results.filter((r) => r.pass).length;
+console.log(`\n${passed}/${results.length} as expected`);
+process.exit(passed === results.length ? 0 : 1);

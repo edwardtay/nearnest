@@ -384,6 +384,16 @@ impl Vault {
         Promise::new(env::current_account_id()).delete_key(self.agent_key.clone())
     }
 
+    /// Owner-only code upgrade. The raw wasm is the call's input (not JSON). The vault
+    /// has no full-access key, so this is the only way to change its code, and only the
+    /// owner, who can already withdraw everything, can use it.
+    pub fn update_contract(&self) -> Promise {
+        self.assert_owner();
+        let code = env::input().unwrap_or_else(|| env::panic_str("missing wasm input"));
+        emit("contract_updated", json!({"by": env::predecessor_account_id(), "bytes": code.len()}));
+        Promise::new(env::current_account_id()).deploy_contract(code)
+    }
+
     pub fn unpause(&mut self) {
         self.assert_owner();
         self.paused = false;
