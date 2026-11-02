@@ -6,20 +6,25 @@
 // The testnet vault mirrors mainnet venues: its Burrow testnet market takes the
 // judgement of Rhea Lend USDC on mainnet, its LiNEAR testnet venue takes LiNEAR's.
 //
-// Usage: node run-agent.mjs [testnet] [--dry] [--loop]
-//   --dry   print the plan, sign nothing
-//   --loop  keep going (waiting out the cooldown) until the plan is empty
+// Usage: node run-agent.mjs [testnet] [--dry] [--loop] [--scenario <id>]
+//   --dry       print the plan, sign nothing
+//   --loop      keep going (waiting out the cooldown) until the plan is empty
+//   --scenario  apply a what-if event (agent/scenarios.mjs) to the live mainnet read
+//               first, so the vault responds to it for real; owner-unblock.mjs undoes it
 import fs from 'node:fs';
 import path from 'node:path';
 import { transactions } from 'near-api-js';
 import { loadState, near, TGAS, NET, ROOT } from './lib.mjs';
-import { buildReport } from '../agent/report.mjs';
-import { planMoves, spendableNative, cooldownLeft } from '../agent/plan.mjs';
+import { readInputs, judgeInputs } from '../agent/report.mjs';
+import { scenario, SCENARIOS } from '../agent/scenarios.mjs';
+import { planMoves, spendableNative, cooldownLeft, MIRROR } from '../agent/plan.mjs';
 
 const args = process.argv.slice(2);
-const net = args.find((a) => !a.startsWith('--')) || 'testnet';
+const net = args.find((a, k) => !a.startsWith('--') && args[k - 1] !== '--scenario') || 'testnet';
 const DRY = args.includes('--dry');
 const LOOP = args.includes('--loop');
+const SC = args.includes('--scenario') ? scenario(args[args.indexOf('--scenario') + 1]) : null;
+if (args.includes('--scenario') && !SC) { console.error(`unknown scenario; one of: ${SCENARIOS.map((x) => x.id).join(', ')}`); process.exit(1); }
 const DECIMALS = { 'usdc.fakes.testnet': 6, near: 24 };
 
 const s = loadState(net);
@@ -49,7 +54,8 @@ async function plan(report) {
   for (const tk of new Set(venues.map((v) => v.venue.token).filter((x) => x !== 'near'))) {
     idle[tk] = BigInt(await view(tk, 'ft_balance_of', { account_id: s.vault }));
   }
-  return { vault, steps: planMoves(report, venues, idle) };
+  // Reads use final finality, a block or two behind; skip blocks this run already sent.
+  return { vault, steps: planMoves(report, venues, idle, undefined, SC ? `simulated ${SC.id}` : 'policy').filter((p) => !(p.kind === 'block' && blockedThisRun.has(p.venue))) };
 }
 
 const fmtStep = (p) => {
@@ -69,8 +75,10 @@ async function execute(step) {
 }
 
 const log = [];
-const report = await buildReport();
-console.log(`mainnet read ${report.generated_at}`);
+const blockedThisRun = new Set();
+const live = await readInputs();
+const report = judgeInputs(SC ? SC.apply(live) : live);
+console.log(`mainnet read ${report.generated_at}${SC ? `\nscenario: ${SC.title}. ${SC.story}` : ''}`);
 for (const v of report.venues) console.log(`  ${v.id.padEnd(10)} ${(v.live.apr_base * 100).toFixed(2)}%  ${v.judgement.verdict}`);
 
 for (let round = 0; round < 12; round++) {
@@ -90,8 +98,9 @@ for (let round = 0; round < 12; round++) {
     }
   }
   const r = await execute(next);
+  if (next.kind === 'block' && r.ok) blockedThisRun.add(next.venue);
   console.log(`${r.ok ? 'done' : 'REFUSED'}  ${next.kind} ${next.venue}  ${r.tx}${r.reason ? `\n  ${r.reason}` : ''}`);
-  log.push({ at: new Date().toISOString(), kind: next.kind, venue: next.venue, mirrors: next.mirrors, verdict: next.verdict,
+  log.push({ at: new Date().toISOString(), scenario: SC?.id ?? null, kind: next.kind, venue: next.venue, mirrors: next.mirrors, verdict: next.verdict,
     apr: next.apr, reasons: next.reasons, amount: next.amount != null ? String(next.amount) : null,
     target: next.want != null ? String(next.want) : null, ok: r.ok, reason: r.reason, tx: r.tx });
   if (!LOOP && next.kind === 'supply') break;

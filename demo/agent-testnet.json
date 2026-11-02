@@ -2,7 +2,7 @@
   "network": "testnet",
   "vault": "v2.nearnest-mvz1l0ba.testnet",
   "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
-  "updated_at": "2026-11-02T13:41:50.982Z",
+  "updated_at": "2026-11-02T17:22:16.374Z",
   "mirror": {
     "burrow-usdc": "rhea-usdc",
     "linear": "linear"
@@ -38,6 +38,98 @@
       "ok": true,
       "reason": null,
       "tx": "https://testnet.nearblocks.io/txns/DGqhfJXFxHZwruEjeTWncyNgDuJvrCXU7EbnrDBd8WiK"
+    },
+    {
+      "at": "2026-11-02T17:17:07.567Z",
+      "scenario": "usdc-depeg",
+      "kind": "block",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "block",
+      "apr": 0.1375207185100336,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; funds not returned",
+        "utilization 88.8%: only 1,445,895 USDC can leave now",
+        "USDC off peg by 0.90%"
+      ],
+      "amount": null,
+      "target": "0",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/9ejKTLCdNKwcGKMusUVnCR8FbRjHchMcdMd2TuDvJLxG"
+    },
+    {
+      "at": "2026-11-02T17:17:17.995Z",
+      "scenario": "usdc-depeg",
+      "kind": "withdraw",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "block",
+      "apr": 0.1375207185100336,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; funds not returned",
+        "utilization 88.8%: only 1,445,895 USDC can leave now",
+        "USDC off peg by 0.90%"
+      ],
+      "amount": "12500000",
+      "target": "0",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/4EVKy3vGEPoRSEerscNhjtYDRH4hU9juqk8efHyvoN6g"
+    },
+    {
+      "at": "2026-11-02T17:17:46.641Z",
+      "scenario": null,
+      "kind": "unblock",
+      "venue": "burrow-usdc",
+      "mirrors": null,
+      "verdict": "allow",
+      "apr": null,
+      "reasons": [
+        "owner reopened the venue"
+      ],
+      "amount": null,
+      "target": null,
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/8DtYuvjvf2jLdzruSnzoMe452rjXXVnJk1Yfaoc7S3x8",
+      "signer": "owner"
+    },
+    {
+      "at": "2026-11-02T17:18:03.818Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.13752087811417682,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; funds not returned",
+        "utilization 88.8%: only 1,445,894 USDC can leave now"
+      ],
+      "amount": "12500000",
+      "target": "12500000",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/6foCpE6bdb3Zq551EiQ23ETMA9Yq3Nupmg2eda5b1i4b"
+    },
+    {
+      "at": "2026-11-02T17:22:15.417Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.13751754756979334,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; $11.2M returned or frozen",
+        "utilization 88.8%: only 1,445,924 USDC can leave now"
+      ],
+      "amount": "12500000",
+      "target": "25000000",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/52gSyzfSJQ7fD3S9avbXvfgDyfTkkMjHwysdeKe67Gcs"
     }
   ]
 }

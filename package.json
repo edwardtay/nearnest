@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "NEARnest: a yield agent on NEAR that earns, and cannot run off with your money.",
+  "description": "NEARnest: a yield agent on NEAR whose key is held to on-chain limits.",
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node server.mjs",

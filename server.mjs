@@ -1,14 +1,16 @@
-/* NEARnest site: static page plus five JSON endpoints. No dependencies.
+/* NEARnest site: static page plus JSON endpoints. No dependencies.
      /api/scan    live mainnet venues judged by the policy (cached 10 min)
      /api/vault   live read of the deployed vault: keys, balances, venues, positions
      /api/drill   recorded compromised-agent drill with transaction links
      /api/plan    the move the agent would make next (read only, nothing is signed)
      /api/agent   moves the agent made, with the policy reasons and transaction links
+     /api/scenario?id=  a what-if event run through the same policy and planner (read only)
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { buildReport } from './agent/report.mjs';
+import { readInputs, judgeInputs } from './agent/report.mjs';
+import { SCENARIOS, scenario, scenarioMeta } from './agent/scenarios.mjs';
 import { planMoves, spendableNative, cooldownLeft, stepJSON } from './agent/plan.mjs';
 
 const DIR = path.dirname(new URL(import.meta.url).pathname);
@@ -58,10 +60,35 @@ async function vaultSnapshot(net) {
   };
 }
 
-async function nextPlan(net) {
-  const [report, snap] = await Promise.all([cached('scan', 600_000, () => buildReport()), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+const inputs = () => cached('inputs', 600_000, () => readInputs());
+const scan = async () => judgeInputs(await inputs());
+
+function idleOf(snap) {
   const idle = { near: spendableNative({ amount: snap.native_yocto, storage_usage: snap.storage_usage }) };
   for (const [t, b] of Object.entries(snap.balances)) idle[t] = BigInt(b ?? 0);
+  return idle;
+}
+
+/** Live inputs and vault, then the same inputs changed by one scenario: verdicts and plans side by side. */
+async function whatIf(net, id) {
+  const s = scenario(id);
+  if (!s) return null;
+  const [base, snap] = await Promise.all([inputs(), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+  const before = judgeInputs(base);
+  const after = judgeInputs(s.apply(base));
+  const idle = idleOf(snap);
+  const pick = (v) => ({ verdict: v.judgement.verdict, cap: v.judgement.capMult, target: v.target, reasons: v.judgement.reasons });
+  return {
+    ...scenarioMeta(s), network: net, read_at: snap.read_at, scan_at: before.generated_at,
+    venues: before.venues.map((v, k) => ({ id: v.id, label: v.label, symbol: v.symbol, apr: v.live.apr_base, before: pick(v), after: pick(after.venues[k]) })),
+    plan_before: planMoves(before, snap.venues, idle).map(stepJSON),
+    plan_after: planMoves(after, snap.venues, idle).map(stepJSON),
+  };
+}
+
+async function nextPlan(net) {
+  const [report, snap] = await Promise.all([scan(), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+  const idle = idleOf(snap);
   const steps = planMoves(report, snap.venues, idle).map(stepJSON);
   return { network: net, read_at: snap.read_at, scan_at: report.generated_at, cooldown_ms: cooldownLeft(snap.vault),
     idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
@@ -75,7 +102,12 @@ function send(res, status, body, type = 'application/json; charset=utf-8', extra
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
-    if (url.pathname === '/api/scan') return send(res, 200, await cached('scan', 600_000, () => buildReport()));
+    if (url.pathname === '/api/scan') return send(res, 200, await scan());
+    if (url.pathname === '/api/scenarios') return send(res, 200, SCENARIOS.map(scenarioMeta));
+    if (url.pathname === '/api/scenario') {
+      const r = await whatIf(NET, url.searchParams.get('id'));
+      return r ? send(res, 200, r) : send(res, 404, { error: 'unknown scenario', ids: SCENARIOS.map((x) => x.id) });
+    }
     if (url.pathname === '/api/vault') return send(res, 200, await cached(`vault-${NET}`, 15_000, () => vaultSnapshot(NET)));
     if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(NET));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));

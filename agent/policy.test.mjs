@@ -56,3 +56,19 @@ test('related protocol incident caps a dependent venue', () => {
   const j = judge(lst, { can_deposit: true, can_withdraw: true, instant_exit: false }, ctx({ incidents: [inc(200)] }));
   assert.equal(j.verdict, 'cap');
 });
+
+test('sourced correction marks the April Rhea Lend hack as partly returned', async () => {
+  const { withNote } = await import('./sources.mjs');
+  const i = withNote({ name: 'Rhea Lend', date: '2026-04-16', ts: Date.UTC(2026, 3, 16), amount: 18.4e6, technique: 'Spot Price Manipulation', returned: null });
+  assert.equal(i.returned, 11.2e6);
+  assert.match(i.source, /theblock\.co/);
+  const j = judge({ ...lending, protocol: 'Rhea Lend' }, healthy, ctx({ incidents: [i] }));
+  assert.equal(j.capMult, 0.5);
+  assert.match(j.reasons[0].text, /\$11\.2M returned or frozen/);
+});
+
+test('a missing price blocks a stablecoin venue', () => {
+  const j = judge(lending, healthy, ctx({ prices: {} }));
+  assert.equal(j.verdict, 'block');
+  assert.match(j.reasons[0].text, /no price for USDC/);
+});

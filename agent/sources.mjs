@@ -1,4 +1,5 @@
 // Live inputs for each venue: yield, exit liquidity, venue switches, prices, incidents.
+import fs from 'node:fs';
 import { view, block } from './near.mjs';
 
 const DAY = 86_400_000;
@@ -58,11 +59,14 @@ export async function prices(ids) {
   return Object.fromEntries(Object.entries(j.coins || {}).map(([k, v]) => [k, v.price]));
 }
 
-/** Incidents from DefiLlama's public hacks feed, matched by protocol name. */
+// Sourced corrections to the DefiLlama feed (it can lag on returned funds).
+const NOTES = JSON.parse(fs.readFileSync(new URL('./incident-notes.json', import.meta.url)));
+
+/** Incidents from DefiLlama's public hacks feed, matched by protocol name, with sourced corrections applied. */
 export async function incidents() {
   const r = await fetch('https://api.llama.fi/hacks');
   const all = await r.json();
-  return all.map((h) => ({
+  return all.map((h) => withNote({
     name: h.name,
     date: new Date(h.date * 1000).toISOString().slice(0, 10),
     ts: h.date * 1000,
@@ -72,4 +76,9 @@ export async function incidents() {
     classification: h.classification,
     returned: h.returnedFunds,
   }));
+}
+
+export function withNote(inc) {
+  const n = NOTES.find((x) => x.name === inc.name && x.date === inc.date);
+  return n ? { ...inc, returned: n.returned, note: n.note, source: n.source } : inc;
 }

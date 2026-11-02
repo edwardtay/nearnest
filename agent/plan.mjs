@@ -25,7 +25,7 @@ export function spendableNative(acct) {
  * @param idle    { [token]: bigint } balance the vault holds outside venues
  * @returns steps sorted: blocks, then exits, then supplies by best base rate, then holds
  */
-export function planMoves(report, venues, idle, mirror = MIRROR) {
+export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy') {
   const steps = [];
   for (const v of venues) {
     const m = report.venues.find((x) => x.id === mirror[v.id]);
@@ -40,11 +40,14 @@ export function planMoves(report, venues, idle, mirror = MIRROR) {
     const base = { venue: v.id, mirrors: m.id, label: m.label, verdict: j.verdict, apr: m.live.apr_base, reasons, token: v.venue.token, have: pos, want };
 
     if (j.verdict === 'block' && !v.venue.blocked_reason) {
-      steps.push({ ...base, kind: 'block', reason: `policy: ${reasons[0] || 'blocked'}`.slice(0, 280), prio: 0 });
+      const why = j.reasons.find((r) => r.level === 'block')?.text || 'blocked';
+      steps.push({ ...base, kind: 'block', reason: `${tag}: ${why}`.slice(0, 280), prio: 0 });
     }
-    if (pos > want && pos - want >= floor) {
+    const blocked = j.verdict === 'block' || !!v.venue.blocked_reason;
+    // Safety exits ignore the gas-saving minimum: any position in a blocked venue leaves.
+    if (pos > want && (pos - want >= floor || (blocked && pos > 0n))) {
       steps.push({ ...base, kind: 'withdraw', amount: min(pos - want, cap), prio: 1 });
-    } else if (want > pos && want - pos >= floor && j.verdict !== 'block' && !v.venue.blocked_reason) {
+    } else if (want > pos && want - pos >= floor && !blocked && v.venue.enabled !== false) {
       const amt = min(min(want - pos, cap), idle[v.venue.token] ?? 0n);
       if (amt >= floor) steps.push({ ...base, kind: 'supply', amount: amt, prio: 2 });
       else steps.push({ ...base, kind: 'hold', note: 'waiting for idle funds', prio: 3 });

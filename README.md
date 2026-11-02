@@ -6,12 +6,13 @@ Live page: https://nearnest.web3wagmi.com
 
 ## Try it in two minutes
 
-1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most, about 14%, and the agent caps it at 25% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 with funds not returned, and its pool is about 89% lent out.
+1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most, about 14%, and the agent caps it at 50% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 (about $11.2M since returned or frozen) and its pool is about 89% lent out.
 2. **See the vault on chain.** Open [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) and its access keys. It has one key, a function-call key limited to `agent_supply`, `agent_withdraw` and `agent_claim_unstaked`. There is no full-access key.
-3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction: 12.5 USDC into Burrow (capped) and 1 NEAR into LiNEAR (allowed), each with the policy reasons recorded at the time.
-4. **See a stolen key fail.** The "Attack drill" section lists 12 attempts made with the real agent key. Transfers, `owner_withdraw`, direct token calls, unknown venues, oversize moves, moves inside the cooldown and moves into a blocked venue are all refused, each with its own reason. Exiting a blocked venue goes through.
+3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction, each with the policy reasons recorded at the time.
+4. **Ask "what if".** The What if view applies one event to the live mainnet read (USDC at $0.991, a fresh Rhea or LiNEAR exploit, a drained USDC pool, or the April hack ageing out) and runs the same policy and planner against the vault. For the depeg it also shows the recorded testnet response: the risk feeder blocked Burrow USDC, the agent key pulled the 12.5 USDC out, the owner reopened the venue and the agent went back in.
+5. **See a stolen key fail.** The Drill view runs 12 checks with the real keys. 8 theft or abuse attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a supply into a blocked venue, and the risk feeder trying to unblock. The 4 permitted operations go through: a normal supply, the feeder's block, the exit from the blocked venue and the owner's unblock.
 
-To repeat steps 3 and 4 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
+To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
 
 ## How it works
 
@@ -36,10 +37,25 @@ Three layers, each one narrower than the last:
    - an exploit in the last 365 days caps it at 25% (funds not returned) or 50% (returned); this covers protocols a venue depends on
    - lending utilization of 95% or more blocks; 85% or more caps at 50%
    - the vault never holds more than 1% of what can leave a lending pool right now
-   - a stablecoin 0.5% or more off its peg blocks every venue holding it
+   - a stablecoin 0.5% or more off its peg blocks every venue holding it, and a missing price blocks it too
    - yield counts the base rate; token rewards are flagged and left out
+   - incidents come from DefiLlama's hacks feed, with sourced corrections in [`agent/incident-notes.json`](agent/incident-notes.json) where the feed lags (it lists the April Rhea Lend hack with no returned funds; The Block reports about $11.2M returned or frozen)
 
 A separate risk-feeder account can block a venue with a reason, pause the vault or delete the agent key. It cannot unblock, unpause or move funds: those stay with the owner.
+
+The two layers hold different promises. The contract's limits (approved venues, per-move cap, venue cap, cooldown, daily limit, blocks) bind anyone holding the agent key. The policy's tighter targets (the 25% and 50% caps, the 1% exit-liquidity ceiling) are followed by the honest agent; a stolen key ignoring them is still held to the contract's caps until the risk feeder blocks the venue.
+
+### What if
+
+[`agent/scenarios.mjs`](agent/scenarios.mjs) changes the live inputs the way a real event would and reruns the unchanged policy and planner. The page shows the verdicts and plans side by side (`/api/scenario?id=usdc-depeg`). `run-agent.mjs --scenario <id>` makes the vault respond for real on testnet, and `owner-unblock.mjs` reopens the venue afterwards.
+
+| Scenario | Policy response |
+|---|---|
+| `usdc-depeg`: USDC at $0.991 | blocks Rhea Lend USDC; block, then exit |
+| `rhea-exploit`: $12M Rhea Lend exploit today | blocks Rhea USDC, USDt and rNEAR (rNEAR depends on Rhea Lend) |
+| `linear-exploit`: $8M LiNEAR exploit today | blocks LiNEAR; unstake |
+| `usdc-run`: USDC pool at 97% utilization | blocks Rhea Lend USDC; exit |
+| `year-later`: 18 April 2027 | the April incident ages out; rNEAR goes to full size, the lending pools stay capped by utilization |
 
 ### Contract interface
 
@@ -67,7 +83,7 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
-# policy and contract tests (10 JS, 16 Rust)
+# policy, planner, scenario and contract tests (20 JS, 16 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -82,6 +98,8 @@ cd scripts && npm install
 node testnet-setup.mjs         # keys are written to ../keys/testnet.json (gitignored, mode 600)
 node run-agent.mjs --dry       # print the plan
 node run-agent.mjs --loop      # make the moves, waiting out the vault cooldown
+node run-agent.mjs --scenario usdc-depeg   # respond to a simulated event for real
+node owner-unblock.mjs burrow-usdc         # owner reopens the venue afterwards
 node attack.mjs                # the compromised-key drill, writes demo/attack-testnet.json
 
 # the page
@@ -107,13 +125,15 @@ agent/      venue reads, risk policy, report builder, scan CLI, policy tests
 scripts/    testnet setup, agent run loop, attack drill, inspection helpers
 demo/       public deployment ids and recorded runs (no secrets)
 public/     the web page
-server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /api/agent, /api/drill)
+server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /api/agent, /api/drill, /api/scenario)
 ```
 
 ## Limits
 
 - The vault runs on testnet. A mainnet vault needs about 4 NEAR for contract storage.
 - One vault serves one owner. Shares for several depositors are out of scope.
+- Exits from LiNEAR start an unstake; the NEAR comes back after 4 epochs and the vault does not yet track it while unbonding.
+- Withdrawals and claims are signed by the agent key. After the key is removed the owner recovers funds by adding a new agent key.
 - The policy reads incidents from DefiLlama's hacks list, so a new exploit reaches the agent when DefiLlama records it. The risk feeder exists to block faster than that.
 
 ## Built with AI

@@ -39,12 +39,13 @@ export function judge(venue, live, ctx) {
     const age = (ctx.now - inc.ts) / DAY;
     const usd = `$${(inc.amount / 1e6).toFixed(1)}M`;
     const what = `${inc.name} lost ${usd} on ${inc.date} (${inc.technique || inc.classification})`;
-    if (age <= RULES.recentIncidentDays) block(`${what}, ${Math.round(age)} days ago`);
+    const ago = age < 1 ? 'today' : `${Math.round(age)} days ago`;
+    if (age <= RULES.recentIncidentDays) block(`${what}, ${ago}`);
     else if (age <= RULES.incidentMemoryDays) {
       const returned = inc.returned && inc.returned > 0;
       cap(
         returned ? RULES.capAfterReturnedIncident : RULES.capAfterUnreturnedIncident,
-        `${what}, ${Math.round(age)} days ago; funds ${returned ? 'partly returned' : 'not returned'}`,
+        `${what}, ${ago}; ${returned ? `$${(inc.returned / 1e6).toFixed(1)}M returned or frozen` : 'funds not returned'}`,
       );
     }
   }
@@ -58,7 +59,8 @@ export function judge(venue, live, ctx) {
   }
   if (venue.kind === 'LiquidStake' && !live.instant_exit) note('exit takes 4 epochs (about 2 to 3 days)');
 
-  if (venue.price_id && ctx.prices[venue.price_id] != null) {
+  if (venue.price_id && ctx.prices[venue.price_id] == null) block(`no price for ${venue.symbol}: peg cannot be checked`);
+  else if (venue.price_id) {
     const dev = Math.abs(ctx.prices[venue.price_id] - 1);
     if (dev >= RULES.depegBlock) block(`${venue.symbol} off peg by ${(dev * 100).toFixed(2)}%`);
   }
