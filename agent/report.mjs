@@ -11,7 +11,7 @@ export async function buildReport(now = Date.now()) {
   const lendingContracts = [...new Set(VENUES.filter((v) => v.kind === 'LendingFt').map((v) => v.contract))];
   const [assetMaps, px, inc] = await Promise.all([
     Promise.all(lendingContracts.map((c) => rheaAssets(c))),
-    prices(VENUES.map((v) => v.price_id).filter(Boolean)),
+    prices([...VENUES.map((v) => v.price_id).filter(Boolean), 'coingecko:near']),
     incidents(),
   ]);
   const byContract = Object.fromEntries(lendingContracts.map((c, i) => [c, assetMaps[i]]));

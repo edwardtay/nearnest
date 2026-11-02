@@ -8,7 +8,7 @@ Live page: https://nearnest.web3wagmi.com
 
 1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most, about 14%, and the agent caps it at 25% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 with funds not returned, and its pool is about 89% lent out.
 2. **See the vault on chain.** Open [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) and its access keys. It has one key, a function-call key limited to `agent_supply`, `agent_withdraw` and `agent_claim_unstaked`. There is no full-access key.
-3. **See the agent move money.** The "Agent moves" section links each transaction: 12.5 USDC into Burrow (capped) and 1 NEAR into LiNEAR (allowed), each with the policy reasons recorded at the time.
+3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction: 12.5 USDC into Burrow (capped) and 1 NEAR into LiNEAR (allowed), each with the policy reasons recorded at the time.
 4. **See a stolen key fail.** The "Attack drill" section lists 12 attempts made with the real agent key. Transfers, `owner_withdraw`, direct token calls, unknown venues, oversize moves, moves inside the cooldown and moves into a blocked venue are all refused, each with its own reason. Exiting a blocked venue goes through.
 
 To repeat steps 3 and 4 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
@@ -107,7 +107,7 @@ agent/      venue reads, risk policy, report builder, scan CLI, policy tests
 scripts/    testnet setup, agent run loop, attack drill, inspection helpers
 demo/       public deployment ids and recorded runs (no secrets)
 public/     the web page
-server.mjs  page server and JSON endpoints (/api/scan, /api/vault, /api/agent, /api/drill)
+server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /api/agent, /api/drill)
 ```
 
 ## Limits

@@ -58,128 +58,199 @@
   </div>
 </nav>
 
-<header class="tool-head">
-  <div class="wrap">
-    <p class="crumb"><a href="https://web3wagmi.com/tools">Tools</a> / NEARnest</p>
-    <h1>NEARnest</h1>
-    <p class="lede">A yield agent on NEAR that earns, and cannot run off with your money. It reads live yields, judges each venue against exploits and exit liquidity, and moves funds through a vault that only lets it do what the owner approved.</p>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/></symbol>
+  <symbol id="i-yield" viewBox="0 0 24 24"><path d="M3 17l5.5-5.5 4 4L21 7"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-vault" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="15" rx="2"/><circle cx="12" cy="11.5" r="3.5"/><path d="M12 8v1M12 14v1M8.5 11.5h1M14.5 11.5h1M6.5 19v2M17.5 19v2"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.5"/><circle cx="8" cy="12" r="1.2"/><path d="M12.5 12H21M18 12v3.5M20.5 12v2.5"/></symbol>
+  <symbol id="i-drill" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/><path d="M9 9.5l6 6M15 9.5l-6 6"/></symbol>
+  <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r=".6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.6L20 16"/><path d="M20 20.5V16h-4.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></symbol>
+</svg>
+
+<header class="appbar">
+  <div class="appbar-in">
+    <a class="app-id" href="#overview" aria-label="NEARnest overview">
+      <svg class="app-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0f172a"/><ellipse cx="16" cy="13.5" rx="5" ry="6.2" fill="#fbbf24"/><path d="M5 17.5c2 6.5 6.3 9 11 9s9-2.5 11-9" fill="none" stroke="#f59e0b" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 20.5l3.5-2M24.5 20.5l-3.5-2M12 24l2-3M20 24l-2-3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span><h1>NEARnest</h1><span class="app-tag">Policy-bound yield agent</span></span>
+    </a>
+    <div class="app-status">
+      <span class="badge"><img src="/img/near.png" alt="" width="16" height="16">Vault on testnet</span>
+      <span class="badge">Rates from mainnet</span>
+      <span class="live" id="live"><i aria-hidden="true"></i><span id="live-t">Connecting</span></span>
+      <button class="btn-icon" id="refresh" type="button" aria-label="Refresh now"><svg><use href="#i-refresh"/></svg></button>
+    </div>
   </div>
 </header>
 
-<nav class="toc" aria-label="On this page">
-  <div class="wrap toc-in">
-    <a href="#yield" aria-current="true">Yield, judged</a>
-    <a href="#vault">The vault</a>
-    <a href="#moves">Agent moves</a>
-    <a href="#drill">Attack drill</a>
-    <a href="#how">How it works</a>
-    <a href="#faq">FAQ</a>
-  </div>
-</nav>
-
-<main class="wrap">
-  <div class="stats" data-n="4">
-    <div class="stat"><span class="k">Best raw yield on NEAR</span><b id="st-best">…</b><span class="s" id="st-best-s"></span></div>
-    <div class="stat"><span class="k">Venues the agent may use now</span><b id="st-ok">…</b><span class="s" id="st-ok-s"></span></div>
-    <div class="stat"><span class="k">Keys on the vault account</span><b id="st-keys">…</b><span class="s" id="st-keys-s"></span></div>
-    <div class="stat"><span class="k">Drill attempts stopped</span><b id="st-drill">…</b><span class="s" id="st-drill-s"></span></div>
-  </div>
-
-  <section id="yield" class="section">
-    <div class="sec-head">
-      <h2>Yield, judged</h2>
-      <button class="btn-cta" id="rescan" type="button">Re-scan</button>
+<div class="shell">
+  <nav class="side" aria-label="NEARnest">
+    <a href="#overview" data-v="overview"><svg><use href="#i-home"/></svg><span>Overview</span></a>
+    <a href="#yield" data-v="yield"><svg><use href="#i-yield"/></svg><span>Yield</span></a>
+    <a href="#vault" data-v="vault"><svg><use href="#i-vault"/></svg><span>Vault</span></a>
+    <a href="#agent" data-v="agent"><svg><use href="#i-agent"/></svg><span>Agent</span></a>
+    <a href="#drill" data-v="drill"><svg><use href="#i-drill"/></svg><span>Drill</span></a>
+    <a href="#about" data-v="about"><svg><use href="#i-about"/></svg><span>About</span></a>
+    <div class="side-card" id="health">
+      <span class="k">Vault health</span>
+      <b id="health-state">Reading</b>
+      <span class="s" id="health-s"></span>
     </div>
-    <p class="sub">Live mainnet rates, read from the venue contracts. The policy caps or blocks each venue and says why.</p>
-    <div class="tbl-wrap"><table class="tbl" id="yield-tbl">
-      <thead><tr><th>Venue</th><th class="n">Yield</th><th>Agent may put in</th><th>Why</th></tr></thead>
-      <tbody><tr><td colspan="4" class="loading">Reading NEAR mainnet…</td></tr></tbody>
-    </table></div>
-    <p class="foot" id="yield-foot"></p>
-  </section>
+  </nav>
 
-  <section id="vault" class="section">
-    <h2>The vault</h2>
-    <p class="sub" id="vault-sub">Read live from the chain.</p>
-    <div class="pair">
-      <div class="panel">
-        <h3>Keys on the vault account</h3>
-        <ul class="keys" id="keys"></ul>
-        <p class="note">No full-access key exists, so nobody can redeploy the contract or move funds outside it. Only the owner can change code, through the contract.</p>
+  <main class="views">
+    <!-- ============================================================ overview -->
+    <section class="view" data-view="overview" aria-labelledby="h-overview">
+      <div class="view-head">
+        <h2 id="h-overview">Overview</h2>
+        <p class="sub">The agent reads live yields, judges each venue against exploits and exit liquidity, and moves funds through a vault that only lets it do what the owner approved.</p>
       </div>
-      <div class="panel">
-        <h3>Rules the contract enforces</h3>
-        <dl class="rules" id="rules"></dl>
+
+      <div class="hero">
+        <div class="card position">
+          <span class="k">In venues</span>
+          <b class="big" id="pos-usd">…</b>
+          <span class="s" id="pos-s"></span>
+          <div class="stack" id="pos-bar" aria-hidden="true"></div>
+          <ul class="legend" id="pos-legend"></ul>
+          <p class="foot" id="pos-idle"></p>
+        </div>
+
+        <div class="card next" id="next">
+          <div class="next-top"><span class="k">Agent's next move</span><span id="next-pill"></span></div>
+          <p class="next-lead" id="next-lead">Planning…</p>
+          <ul class="next-why" id="next-why"></ul>
+          <div class="next-foot">
+            <span class="cool" id="next-cool"></span>
+            <button class="btn-cmd" id="copy-cmd" type="button"><code>node scripts/run-agent.mjs</code><svg><use href="#i-copy"/></svg></button>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="tbl-wrap short"><table class="tbl" id="venue-tbl">
-      <thead><tr><th>Approved venue</th><th>Status</th><th class="n">In venue</th><th class="n">Venue cap</th><th class="n">Per move</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-  </section>
 
-  <section id="moves" class="section">
-    <h2>Agent moves</h2>
-    <p class="sub">What the agent did with the vault, each move sized by the policy and signed with the agent key.</p>
-    <div class="tbl-wrap"><table class="tbl" id="moves-tbl">
-      <thead><tr><th>Move</th><th class="n">Amount</th><th>Policy at the time</th><th>Proof</th></tr></thead>
-      <tbody><tr><td colspan="4" class="loading">Reading the agent log…</td></tr></tbody>
-    </table></div>
-    <p class="foot" id="moves-foot"></p>
-  </section>
-
-  <section id="drill" class="section">
-    <h2>Attack drill</h2>
-    <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money. Each line links to its transaction.</p>
-    <div class="tbl-wrap"><table class="tbl" id="drill-tbl">
-      <thead><tr><th>Attempt</th><th>Result</th><th>What stopped it</th><th>Proof</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-  </section>
-
-  <section id="how" class="section">
-    <h2>How it works</h2>
-    <p class="sub">Three parties. Only the owner can take money out.</p>
-    <div class="tiles" data-n="3">
-      <div class="tile">
-        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="6.5" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="11" cy="16" r="2" fill="#b45309"/><path d="M17.5 16H28M24 16v4.5M27.5 16v3" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <h3>Agent key</h3>
-        <p>A function-call key on the vault, limited to supply, withdraw and claim. It cannot send NEAR, call tokens or touch owner methods.</p>
+      <div class="stats">
+        <a class="stat" href="#yield"><span class="k">Best raw yield on NEAR</span><b id="st-best">…</b><span class="s" id="st-best-s"></span></a>
+        <a class="stat" href="#yield"><span class="k">Venues the agent may use</span><b id="st-ok">…</b><span class="s" id="st-ok-s"></span></a>
+        <a class="stat" href="#vault"><span class="k">Keys on the vault</span><b id="st-keys">…</b><span class="s" id="st-keys-s"></span></a>
+        <a class="stat" href="#drill"><span class="k">Drill attempts stopped</span><b id="st-drill">…</b><span class="s" id="st-drill-s"></span></a>
       </div>
-      <div class="tile">
-        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="21" rx="3" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="16" cy="16.5" r="5" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M16 11.5v2M16 19.5v2M11 16.5h2M19 16.5h2M8 27v2.5M24 27v2.5" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <h3>Vault contract</h3>
-        <p>Approved venues with fixed contracts, a cap per move and per venue, a cooldown, a daily limit, and withdrawals only to the owner.</p>
+
+      <div class="card">
+        <div class="card-head"><h3>Activity</h3><a class="more" href="#agent">All moves</a></div>
+        <ol class="feed" id="feed"><li class="loading">Reading the agent log…</li></ol>
       </div>
-      <div class="tile">
-        <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5l10.5 4v8c0 6.5-4.4 11.3-10.5 13-6.1-1.7-10.5-6.5-10.5-13v-8z" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 16h10" stroke="#b45309" stroke-width="2.8" stroke-linecap="round"/></svg>
-        <h3>Risk feeder</h3>
-        <p>Blocks a venue or pauses the vault when an exploit or depeg lands. It cannot unblock, add venues or move funds.</p>
+    </section>
+
+    <!-- =============================================================== yield -->
+    <section class="view" data-view="yield" aria-labelledby="h-yield" hidden>
+      <div class="view-head row">
+        <div><h2 id="h-yield">Yield, judged</h2>
+        <p class="sub">Live mainnet rates, read from the venue contracts. The policy caps or blocks each venue and says why.</p></div>
+        <button class="btn-cta" id="rescan" type="button">Re-scan</button>
       </div>
-    </div>
-    <details class="method"><summary>The policy rules</summary><div id="policy-rules"></div></details>
-  </section>
+      <div class="tbl-wrap"><table class="tbl" id="yield-tbl">
+        <thead><tr><th>Venue</th><th class="n">Yield</th><th>Agent may put in</th><th>Why</th></tr></thead>
+        <tbody><tr><td colspan="4" class="loading">Reading NEAR mainnet…</td></tr></tbody>
+      </table></div>
+      <p class="foot" id="yield-foot"></p>
+      <details class="card method"><summary>The policy rules</summary><div id="policy-rules"></div></details>
+    </section>
 
-  <section id="faq" class="section">
-    <h2>FAQ</h2>
-    <dl class="faq">
-      <dt>What if the agent's key is stolen?</dt>
-      <dd>The thief gets the agent's powers and nothing more: moving capped amounts between the vault and venues the owner approved. NEAR refuses any transfer or method outside the key's list before it runs, and the contract refuses the rest. The owner or risk feeder can delete the key in one call.</dd>
-      <dt>Why does the highest yield get a smaller allocation?</dt>
-      <dd>Rhea Lend pays the most on NEAR, and it lost $18.4M to price manipulation on 16 April 2026 with no funds returned. Its pools are also about 89% lent out, so only a slice can leave at short notice. The policy keeps the venue and cuts the size.</dd>
-      <dt>Is the yield real?</dt>
-      <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
-      <dt>Which network is the vault on?</dt>
-      <dd>The vault, the agent moves and the drill run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet, and the agent sizes its testnet moves from those mainnet judgements.</dd>
-      <dt>Is the code open?</dt>
-      <dd>Yes, MIT licensed: the Rust vault contract, the agent and policy, and the drill.</dd>
-    </dl>
-  </section>
+    <!-- =============================================================== vault -->
+    <section class="view" data-view="vault" aria-labelledby="h-vault" hidden>
+      <div class="view-head">
+        <h2 id="h-vault">The vault</h2>
+        <p class="sub" id="vault-sub">Read live from the chain.</p>
+      </div>
+      <div class="pair">
+        <div class="card panel">
+          <h3>Keys on the vault account</h3>
+          <ul class="keys" id="keys"></ul>
+          <p class="note">No full-access key exists, so nobody can redeploy the contract or move funds outside it. Only the owner can change code, through the contract.</p>
+        </div>
+        <div class="card panel">
+          <h3>Rules the contract enforces</h3>
+          <dl class="rules" id="rules"></dl>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="venue-tbl">
+        <thead><tr><th>Approved venue</th><th>Status</th><th class="n">In venue</th><th class="n">Venue cap</th><th class="n">Per move</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
 
-  <p class="sources">Sources: NEAR RPC via FastNEAR, the Rhea Lend, LiNEAR and rNEAR contracts, DefiLlama hacks and prices, NearBlocks for transactions. Built for NEAR HACKATHON 2026.</p>
-</main>
+    <!-- =============================================================== agent -->
+    <section class="view" data-view="agent" aria-labelledby="h-agent" hidden>
+      <div class="view-head">
+        <h2 id="h-agent">Agent</h2>
+        <p class="sub">The plan is computed live from mainnet judgements and the vault's state. Nothing is signed from this page; the agent signs with its own key.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Plan right now</h3><span class="cool" id="plan-cool"></span></div>
+        <ol class="plan" id="plan"></ol>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="moves-tbl">
+        <thead><tr><th>Move</th><th class="n">Amount</th><th>Policy at the time</th><th>Proof</th></tr></thead>
+        <tbody><tr><td colspan="4" class="loading">Reading the agent log…</td></tr></tbody>
+      </table></div>
+      <p class="foot" id="moves-foot"></p>
+    </section>
 
-<div class="tip" id="tip" role="tooltip" hidden></div>
+    <!-- =============================================================== drill -->
+    <section class="view" data-view="drill" aria-labelledby="h-drill" hidden>
+      <div class="view-head">
+        <h2 id="h-drill">Attack drill</h2>
+        <p class="sub" id="drill-sub">A script holds the real agent key and tries to take the money. Each line links to its transaction.</p>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="drill-tbl">
+        <thead><tr><th>Attempt</th><th>Result</th><th>What stopped it</th><th>Proof</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- =============================================================== about -->
+    <section class="view" data-view="about" aria-labelledby="h-about" hidden>
+      <div class="view-head">
+        <h2 id="h-about">How it works</h2>
+        <p class="sub">Three parties. Only the owner can take money out.</p>
+      </div>
+      <div class="tiles" data-n="3">
+        <div class="tile">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="6.5" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="11" cy="16" r="2" fill="#b45309"/><path d="M17.5 16H28M24 16v4.5M27.5 16v3" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <h3>Agent key</h3>
+          <p>A function-call key on the vault, limited to supply, withdraw and claim. It cannot send NEAR, call tokens or touch owner methods.</p>
+        </div>
+        <div class="tile">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="21" rx="3" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="16" cy="16.5" r="5" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M16 11.5v2M16 19.5v2M11 16.5h2M19 16.5h2M8 27v2.5M24 27v2.5" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <h3>Vault contract</h3>
+          <p>Approved venues with fixed contracts, a cap per move and per venue, a cooldown, a daily limit, and withdrawals only to the owner.</p>
+        </div>
+        <div class="tile">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5l10.5 4v8c0 6.5-4.4 11.3-10.5 13-6.1-1.7-10.5-6.5-10.5-13v-8z" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 16h10" stroke="#b45309" stroke-width="2.8" stroke-linecap="round"/></svg>
+          <h3>Risk feeder</h3>
+          <p>Blocks a venue or pauses the vault when an exploit or depeg lands. It cannot unblock, add venues or move funds.</p>
+        </div>
+      </div>
+      <h3 class="sec-title">FAQ</h3>
+      <dl class="faq">
+        <dt>What if the agent's key is stolen?</dt>
+        <dd>The thief gets the agent's powers and nothing more: moving capped amounts between the vault and venues the owner approved. NEAR refuses any transfer or method outside the key's list before it runs, and the contract refuses the rest. The owner or risk feeder can delete the key in one call.</dd>
+        <dt>Why does the highest yield get a smaller allocation?</dt>
+        <dd>Rhea Lend pays the most on NEAR, and it lost $18.4M to price manipulation on 16 April 2026 with no funds returned. Its pools are also about 89% lent out, so only a slice can leave at short notice. The policy keeps the venue and cuts the size.</dd>
+        <dt>Is the yield real?</dt>
+        <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
+        <dt>Which network is the vault on?</dt>
+        <dd>The vault, the agent moves and the drill run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet, and the agent sizes its testnet moves from those mainnet judgements.</dd>
+        <dt>Is the code open?</dt>
+        <dd>Yes, MIT licensed: the Rust vault contract, the agent and policy, and the drill.</dd>
+      </dl>
+      <p class="sources">Sources: NEAR RPC via FastNEAR, the Rhea Lend, LiNEAR and rNEAR contracts, DefiLlama hacks and prices, NearBlocks for transactions. Built for NEAR HACKATHON 2026.</p>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
 <script type="module" src="/js/app.js"></script>
 </body>
 </html>

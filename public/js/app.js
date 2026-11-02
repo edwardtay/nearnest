@@ -1,5 +1,6 @@
-// NEARnest page: renders /api/scan (mainnet yields judged), /api/vault (live vault
-// read) and /api/drill (recorded attack drill). No framework, no keys.
+// NEARnest app: hash-routed views over /api/scan (mainnet yields judged), /api/vault
+// (live vault read), /api/plan (the agent's next move), /api/agent (moves made) and
+// /api/drill (recorded attack drill). No framework, no keys.
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -7,6 +8,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const acct = (s) => esc(s).replace(/\./g, '.<wbr>');
 const pct = (x) => `${(x * 100).toFixed(2)}%`;
 const num = (x, d = 2) => Number(x).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+const usd = (x) => `$${Number(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const LOGO = {
   // keyed by protocol name and by testnet contract
@@ -16,10 +18,35 @@ const LOGO = {
   'contract.1638481328.burrow.testnet': '/img/rhea.png',
   'linear-protocol.testnet': '/img/linear.png',
 };
+const VENUE = {
+  'burrow-usdc': { name: 'Burrow USDC', logo: '/img/rhea.png', color: '#0ea5e9', token: 'usdc', sym: 'USDC', price: 'coingecko:usd-coin' },
+  linear: { name: 'LiNEAR', logo: '/img/linear.png', color: '#8b5cf6', token: 'near', sym: 'NEAR', price: 'coingecko:near' },
+};
+const MIRROR_NAME = { 'rhea-usdc': 'Rhea Lend USDC', linear: 'LiNEAR' };
 const VERDICT = { allow: 'Allowed', cap: 'Capped', block: 'Blocked' };
+const state = { scan: null, vault: null, plan: null, agent: null, drill: null, at: 0, cooldownEnd: 0 };
 
 function ent(name, logo, small) {
   return `<span class="ent"><span class="logo">${logo ? `<img src="${logo}" alt="" width="24" height="24">` : ''}</span><span class="nm">${esc(name)}${small ? `<small class="mono acct">${acct(small)}</small>` : ''}</span></span>`;
+}
+function units(raw, token) {
+  if (raw == null) return 'n/a';
+  const d = token === 'near' ? 24 : 6;
+  return num(Number(BigInt(raw) * 1000n / 10n ** BigInt(d)) / 1000, 3);
+}
+const toNum = (raw, token) => Number(BigInt(raw ?? 0) * 1_000_000n / 10n ** BigInt(token === 'near' ? 24 : 6)) / 1e6;
+const sym = (t) => (t === 'near' ? 'NEAR' : t.startsWith('usdc') ? 'USDC' : t.startsWith('usdt') ? 'USDt' : t);
+function ago(iso) {
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 1800);
 }
 
 async function getJSON(url) {
@@ -28,15 +55,105 @@ async function getJSON(url) {
   return r.json();
 }
 
+// ------------------------------------------------------------------- router
+
+const VIEWS = ['overview', 'yield', 'vault', 'agent', 'drill', 'about'];
+function route() {
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+  document.querySelectorAll('.view').forEach((el) => { el.hidden = el.dataset.view !== v; });
+  document.querySelectorAll('.side a').forEach((a) => (a.dataset.v === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  const h = $(`[data-view="${v}"] h2`).textContent;
+  document.title = v === 'overview' ? 'NEARnest: a yield agent held to an on-chain policy · web3wagmi' : `${h} · NEARnest · web3wagmi`;
+  window.scrollTo({ top: 0 });
+}
+window.addEventListener('hashchange', route);
+
+// ----------------------------------------------------------------- overview
+
+function renderOverview() {
+  const { plan, scan } = state;
+  if (!plan || !scan) return;
+  const px = scan.prices || {};
+  const rows = plan.steps.map((s) => {
+    const v = VENUE[s.venue];
+    const amount = toNum(s.have, s.token);
+    return { ...s, v, amount, usd: amount * (px[v?.price] ?? 0) };
+  }).filter((r) => r.v);
+  const total = rows.reduce((a, r) => a + r.usd, 0);
+  const earn = rows.reduce((a, r) => a + r.usd * r.apr, 0);
+  $('#pos-usd').textContent = usd(total);
+  $('#pos-s').textContent = total ? `Earning ${pct(earn / total)} blended, about ${usd(earn)} a year at today's rates` : 'Nothing supplied yet';
+  $('#pos-bar').innerHTML = rows.map((r) => `<i style="width:${total ? (r.usd / total) * 100 : 0}%;background:${r.v.color}"></i>`).join('');
+  $('#pos-legend').innerHTML = rows.map((r) => `<li><span class="sw" style="background:${r.v.color}"></span>${ent(r.v.name, r.v.logo)}
+    <span class="amt">${num(r.amount, 3)} ${r.v.sym}</span><span class="apr">${pct(r.apr)}</span></li>`).join('');
+  const idle = Object.entries(plan.idle).map(([t, b]) => `${units(b, t)} ${sym(t)}`).join(' and ');
+  $('#pos-idle').textContent = `Idle in the vault: ${idle}. NEAR at ${usd(px['coingecko:near'] ?? 0)}.`;
+
+  const next = plan.steps.find((s) => s.kind !== 'hold');
+  const card = $('#next');
+  card.classList.remove('is-supply', 'is-exit');
+  if (!next) {
+    $('#next-pill').innerHTML = '<span class="pill hold">Holding</span>';
+    $('#next-lead').textContent = 'Nothing to do';
+    const waiting = plan.steps.filter((s) => s.note === 'waiting for idle funds').map((s) => VENUE[s.venue]?.name || s.venue);
+    $('#next-why').innerHTML = `<li>Every venue is at the size the policy allows${waiting.length ? `, except ${esc(waiting.join(' and '))}, which waits for idle funds` : ''}.</li>`;
+  } else {
+    const v = VENUE[next.venue] || { name: next.venue, sym: '' };
+    card.classList.add(next.kind === 'supply' ? 'is-supply' : 'is-exit');
+    $('#next-pill').innerHTML = `<span class="pill ${next.verdict}">${VERDICT[next.verdict]}</span>`;
+    const verb = { supply: 'Supply', withdraw: 'Withdraw', block: 'Block' }[next.kind];
+    const amt = next.amount ? `<span class="fig">${units(next.amount, next.token)} ${v.sym}</span> ` : '';
+    const prep = next.kind === 'supply' ? 'to' : next.kind === 'withdraw' ? 'from' : '';
+    $('#next-lead').innerHTML = `${verb} ${amt}${prep} ${esc(v.name)}`;
+    const why = [
+      `${MIRROR_NAME[next.mirrors] || next.mirrors} pays ${pct(next.apr)} on mainnet.`,
+      `Holds ${units(next.have, next.token)}, policy target ${units(next.want, next.token)} ${v.sym}.`,
+      ...next.reasons,
+    ];
+    $('#next-why').innerHTML = why.map((r) => `<li>${esc(r)}</li>`).join('');
+  }
+  state.cooldownEnd = Date.now() + (plan.cooldown_ms || 0);
+  tickCooldown();
+}
+
+function tickCooldown() {
+  const left = Math.ceil((state.cooldownEnd - Date.now()) / 1000);
+  const html = left > 0 ? `Vault cooldown: next supply in <b>${left}s</b>` : 'Vault ready for the next move';
+  $('#next-cool').innerHTML = html;
+  $('#plan-cool').innerHTML = html;
+}
+
+function renderFeed() {
+  const items = [];
+  for (const m of state.agent?.moves || []) {
+    const v = VENUE[m.venue] || { name: m.venue, sym: '' };
+    const verb = { supply: 'Supplied', withdraw: 'Withdrew', block: 'Blocked' }[m.kind] || m.kind;
+    items.push({ at: m.at, kind: m.kind === 'supply' ? 'allow' : 'block', icon: m.kind === 'supply' ? 'M12 19V5M6 11l6-6 6 6' : 'M12 5v14M6 13l6 6 6-6',
+      t: `${verb} ${m.amount ? `${units(m.amount, v.token)} ${v.sym} ` : ''}${m.kind === 'supply' ? 'to' : 'from'} ${v.name}`,
+      d: `${VERDICT[m.verdict]} by the policy${m.reasons?.length ? `: ${m.reasons[0]}` : ''}`, tx: m.tx });
+  }
+  const d = state.drill;
+  if (d) {
+    const stopped = d.results.filter((r) => r.expect === 'rejected' && r.pass).length;
+    const attacks = d.results.filter((r) => r.expect === 'rejected').length;
+    items.push({ at: d.ran_at, kind: 'block', icon: 'M8 8l8 8M16 8l-8 8', t: `Attack drill: ${stopped} of ${attacks} theft attempts stopped`,
+      d: 'A script holding the real agent key tried transfers, owner calls, unknown venues and oversize moves.', href: '#drill' });
+  }
+  items.sort((a, b) => new Date(b.at) - new Date(a.at));
+  $('#feed').innerHTML = items.slice(0, 6).map((i) => `<li>
+    <span class="dot ${i.kind}"><svg viewBox="0 0 24 24"><path d="${i.icon}"/></svg></span>
+    <div><div class="t">${esc(i.t)}</div><div class="d">${esc(i.d)}</div></div>
+    <div class="when">${ago(i.at)}${i.tx ? `<a href="${esc(i.tx)}">Transaction</a>` : i.href ? `<a href="${i.href}">Details</a>` : ''}</div></li>`).join('')
+    || '<li class="loading">No activity yet.</li>';
+}
+
 // ------------------------------------------------------------- yield, judged
 
 function renderScan(rep) {
   const rows = rep.venues.map((v) => {
     const j = v.judgement;
     const share = v.max_alloc ? Math.min(1, v.target / v.max_alloc) : 0;
-    const reasons = j.reasons.length
-      ? `<ul>${j.reasons.map((r) => `<li>${esc(r.text)}</li>`).join('')}</ul>`
-      : 'No flags.';
+    const reasons = j.reasons.length ? `<ul>${j.reasons.map((r) => `<li>${esc(r.text)}</li>`).join('')}</ul>` : 'No flags.';
     return `<tr>
       <th scope="row">${ent(v.label, LOGO[v.protocol], v.contract)}</th>
       <td class="n">${pct(v.live.apr_base)}</td>
@@ -69,26 +186,7 @@ function renderScan(rep) {
   </ul>`;
 }
 
-async function loadScan() {
-  const btn = $('#rescan');
-  btn.disabled = true;
-  try {
-    renderScan(await getJSON('/api/scan'));
-  } catch (e) {
-    $('#yield-tbl tbody').innerHTML = `<tr><td colspan="4" class="loading">Could not read the venues: ${esc(e.message)}</td></tr>`;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
 // ---------------------------------------------------------------- the vault
-
-function units(raw, token) {
-  if (raw == null) return 'n/a';
-  const d = token === 'near' ? 24 : 6;
-  return num(Number(BigInt(raw) * 1000n / 10n ** BigInt(d)) / 1000, 3);
-}
-const sym = (t) => (t === 'near' ? 'NEAR' : t.startsWith('usdc') ? 'USDC' : t.startsWith('usdt') ? 'USDt' : t);
 
 function renderVault(v) {
   const dep = v.deployment;
@@ -121,11 +219,47 @@ function renderVault(v) {
   $('#venue-tbl tbody').innerHTML = v.venues.map((x) => {
     const st = x.venue.blocked_reason ? `<span class="pill block">Blocked</span><div class="note">${esc(x.venue.blocked_reason)}</div>`
       : x.venue.enabled ? '<span class="pill allow">Open</span>' : '<span class="pill cap">Disabled</span>';
-    return `<tr><th scope="row">${ent(x.id, LOGO[x.venue.contract], x.venue.contract)}</th><td>${st}</td>
+    return `<tr><th scope="row">${ent(VENUE[x.id]?.name || x.id, LOGO[x.venue.contract], x.venue.contract)}</th><td>${st}</td>
       <td class="n">${units(x.position, x.venue.token)} ${sym(x.venue.token)}</td>
       <td class="n">${units(x.venue.max_alloc, x.venue.token)}</td>
       <td class="n">${units(x.max_move, x.venue.token)}</td></tr>`;
   }).join('');
+
+  const blocked = v.venues.filter((x) => x.venue.blocked_reason).length;
+  const hs = $('#health-state');
+  hs.textContent = v.vault.paused ? 'Paused' : blocked ? `${blocked} venue blocked` : 'Running';
+  hs.className = v.vault.paused || blocked ? 'bad' : 'ok';
+  $('#health-s').textContent = `${full ? `${full} full-access key` : 'No full-access key'}. ${v.vault.moves_today} of ${pol.max_moves_per_day} moves used today.`;
+}
+
+// ---------------------------------------------------------------- the agent
+
+function renderPlan(p) {
+  $('#plan').innerHTML = p.steps.map((s) => {
+    const v = VENUE[s.venue] || { name: s.venue, sym: '' };
+    const go = s.kind !== 'hold';
+    const t = go
+      ? `${{ supply: 'Supply', withdraw: 'Withdraw', block: 'Block' }[s.kind]} ${s.amount ? `${units(s.amount, s.token)} ${v.sym} ` : ''}${s.kind === 'supply' ? 'to' : s.kind === 'withdraw' ? 'from' : ''} ${v.name}`
+      : `Hold ${v.name}`;
+    const d = `${units(s.have, s.token)} of ${units(s.want, s.token)} ${v.sym} target. ${MIRROR_NAME[s.mirrors] || s.mirrors} at ${pct(s.apr)}${s.note ? `, ${s.note}` : ''}.`;
+    return `<li class="${go ? 'go' : ''}"><div><div class="t">${esc(t)}</div><div class="d">${esc(d)}</div></div><span class="pill ${go ? s.verdict : 'hold'}">${go ? VERDICT[s.verdict] : 'Hold'}</span></li>`;
+  }).join('');
+}
+
+const VERB = { supply: 'Supplied to', withdraw: 'Withdrew from', block: 'Blocked' };
+function renderMoves(a) {
+  const rows = [...a.moves].reverse().map((m) => {
+    const v = VENUE[m.venue] || { name: m.venue, token: 'usdc', sym: '' };
+    const amt = m.amount ? `${units(m.amount, v.token)} ${v.sym}` : '';
+    const pill = `<span class="pill ${m.verdict}">${VERDICT[m.verdict]}</span>`;
+    const why = m.reasons.length ? `<ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : 'No flags.';
+    const tgt = m.target ? `<div class="note">Target ${units(m.target, v.token)}, from mainnet ${esc(MIRROR_NAME[m.mirrors] || m.mirrors)} at ${pct(m.apr)}</div>` : '';
+    return `<tr><th scope="row">${ent(`${VERB[m.kind] || m.kind} ${v.name}`, v.logo, new Date(m.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')}</th>
+      <td class="n">${amt}</td><td class="why"><div class="vd">${pill}</div>${why}${tgt}</td>
+      <td>${m.ok ? `<a href="${esc(m.tx)}">Transaction</a>` : `Refused: ${esc(cleanReason(m.reason))}`}</td></tr>`;
+  });
+  $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
+  $('#moves-foot').textContent = 'The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR.';
 }
 
 // ----------------------------------------------------------------- the drill
@@ -155,42 +289,56 @@ function renderDrill(d) {
   }).join('');
 }
 
-// ---------------------------------------------------------------- agent moves
+// ------------------------------------------------------------------ loading
 
-const VENUE_NAME = { 'burrow-usdc': 'Burrow USDC', linear: 'LiNEAR' };
-const VERB = { supply: 'Supplied to', withdraw: 'Withdrew from', block: 'Blocked' };
-function renderMoves(a) {
-  const rows = [...a.moves].reverse().map((m) => {
-    const token = m.venue === 'linear' ? 'near' : 'usdc';
-    const amt = m.amount ? `${units(m.amount, token)} ${token === 'near' ? 'NEAR' : 'USDC'}` : '';
-    const pill = `<span class="pill ${m.verdict}">${VERDICT[m.verdict]}</span>`;
-    const why = m.reasons.length ? `<ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : 'No flags.';
-    const tgt = m.target ? `<div class="note">Target ${units(m.target, token)}, from mainnet ${esc(m.mirrors === 'rhea-usdc' ? 'Rhea Lend USDC' : m.mirrors === 'linear' ? 'LiNEAR' : m.mirrors)} at ${pct(m.apr)}</div>` : '';
-    return `<tr><th scope="row">${ent(`${VERB[m.kind] || m.kind} ${VENUE_NAME[m.venue] || m.venue}`, LOGO[m.venue === 'linear' ? 'LiNEAR' : 'Rhea Lend'], new Date(m.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')}</th>
-      <td class="n">${amt}</td><td class="why"><div class="vd">${pill}</div>${why}${tgt}</td>
-      <td>${m.ok ? `<a href="${esc(m.tx)}">Transaction</a>` : `Refused: ${esc(cleanReason(m.reason))}`}</td></tr>`;
-  });
-  $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
-  $('#moves-foot').textContent = `The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Run scripts/run-agent.mjs to make the next move.`;
+function setLive(ok) {
+  const el = $('#live');
+  el.classList.toggle('on', ok); el.classList.toggle('err', !ok);
+  if (ok) state.at = Date.now();
+  tickLive();
+}
+function tickLive() {
+  const el = $('#live-t');
+  if ($('#live').classList.contains('err')) { el.textContent = 'Offline, retrying'; return; }
+  if (!state.at) return;
+  const s = Math.round((Date.now() - state.at) / 1000);
+  el.textContent = `Live, updated ${s < 5 ? 'just now' : `${s}s ago`}`;
 }
 
-// ---------------------------------------------------------- section nav spy
-
-function spy() {
-  const links = [...document.querySelectorAll('.toc a')];
-  const io = new IntersectionObserver((es) => {
-    for (const e of es) {
-      if (!e.isIntersecting) continue;
-      links.forEach((a) => a.setAttribute('aria-current', a.hash === `#${e.target.id}`));
-      links.find((a) => a.hash === `#${e.target.id}`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-    }
-  }, { rootMargin: '-30% 0px -65% 0px' });
-  document.querySelectorAll('section[id]').forEach((s) => io.observe(s));
+async function loadScan() {
+  const btn = $('#rescan');
+  btn.disabled = true;
+  try {
+    state.scan = await getJSON('/api/scan');
+    renderScan(state.scan);
+  } catch (e) {
+    $('#yield-tbl tbody').innerHTML = `<tr><td colspan="4" class="loading">Could not read the venues: ${esc(e.message)}</td></tr>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
-$('#rescan').addEventListener('click', loadScan);
-spy();
-loadScan();
-getJSON('/api/vault').then(renderVault).catch((e) => { $('#vault-sub').textContent = `Could not read the vault: ${e.message}`; });
-getJSON('/api/agent').then(renderMoves).catch(() => { $('#moves-tbl tbody').innerHTML = '<tr><td colspan="4" class="loading">No moves yet.</td></tr>'; });
-getJSON('/api/drill').then(renderDrill).catch(() => {});
+async function refresh() {
+  const btn = $('#refresh');
+  btn.classList.add('spin');
+  const [vault, plan, agent] = await Promise.allSettled([getJSON('/api/vault'), getJSON('/api/plan'), getJSON('/api/agent')]);
+  btn.classList.remove('spin');
+  if (vault.status === 'fulfilled') renderVault(state.vault = vault.value);
+  else $('#vault-sub').textContent = `Could not read the vault: ${vault.reason.message}`;
+  if (plan.status === 'fulfilled') { state.plan = plan.value; renderPlan(state.plan); renderOverview(); }
+  if (agent.status === 'fulfilled') { state.agent = agent.value; renderMoves(state.agent); }
+  renderFeed();
+  setLive(vault.status === 'fulfilled' && plan.status === 'fulfilled');
+}
+
+$('#rescan').addEventListener('click', async () => { await loadScan(); renderOverview(); });
+$('#refresh').addEventListener('click', refresh);
+$('#copy-cmd').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText('node scripts/run-agent.mjs'); toast('Command copied'); } catch { toast('Copy failed'); }
+});
+
+route();
+getJSON('/api/drill').then((d) => { state.drill = d; renderDrill(d); renderFeed(); }).catch(() => {});
+loadScan().then(refresh);
+setInterval(refresh, 30_000);
+setInterval(() => { tickLive(); tickCooldown(); }, 1000);

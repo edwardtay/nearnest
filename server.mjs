@@ -1,13 +1,15 @@
-/* NEARnest site: static page plus four JSON endpoints. No dependencies.
+/* NEARnest site: static page plus five JSON endpoints. No dependencies.
      /api/scan    live mainnet venues judged by the policy (cached 10 min)
      /api/vault   live read of the deployed vault: keys, balances, venues, positions
      /api/drill   recorded compromised-agent drill with transaction links
+     /api/plan    the move the agent would make next (read only, nothing is signed)
      /api/agent   moves the agent made, with the policy reasons and transaction links
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { buildReport } from './agent/report.mjs';
+import { planMoves, spendableNative, cooldownLeft, stepJSON } from './agent/plan.mjs';
 
 const DIR = path.dirname(new URL(import.meta.url).pathname);
 const PUB = path.join(DIR, 'public');
@@ -56,6 +58,15 @@ async function vaultSnapshot(net) {
   };
 }
 
+async function nextPlan(net) {
+  const [report, snap] = await Promise.all([cached('scan', 600_000, () => buildReport()), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+  const idle = { near: spendableNative({ amount: snap.native_yocto, storage_usage: snap.storage_usage }) };
+  for (const [t, b] of Object.entries(snap.balances)) idle[t] = BigInt(b ?? 0);
+  const steps = planMoves(report, snap.venues, idle).map(stepJSON);
+  return { network: net, read_at: snap.read_at, scan_at: report.generated_at, cooldown_ms: cooldownLeft(snap.vault),
+    idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
+}
+
 function send(res, status, body, type = 'application/json; charset=utf-8', extra = {}) {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
@@ -66,6 +77,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/scan') return send(res, 200, await cached('scan', 600_000, () => buildReport()));
     if (url.pathname === '/api/vault') return send(res, 200, await cached(`vault-${NET}`, 15_000, () => vaultSnapshot(NET)));
+    if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(NET));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
     if (url.pathname === '/api/agent') return send(res, 200, await readFile(path.join(DIR, 'demo', `agent-${NET}.json`)));
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
