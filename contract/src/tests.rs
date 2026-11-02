@@ -307,3 +307,24 @@ fn unbonding_counts_toward_the_venue_cap() {
     as_agent(20_000);
     let _ = v.agent_supply("rhea-usdc".into(), U128(10 * UNIT));
 }
+
+#[test]
+fn preset_init_sets_venues_caps_and_feeder() {
+    as_owner();
+    let v = Vault::new_preset(
+        OWNER.parse().unwrap(),
+        agent_pk(),
+        Policy { cooldown_s: 60, max_moves_per_day: 10 },
+        Some(FEEDER.parse().unwrap()),
+        vec![(
+            "burrow-usdc".into(),
+            Venue { kind: VenueKind::LendingFt, contract: RHEA.parse().unwrap(), token: USDC.into(), max_alloc: U128(50 * UNIT), enabled: true, blocked_reason: None, extra_decimals: 12 },
+        )],
+        vec![(USDC.into(), U128(20 * UNIT))],
+        vec![(USDC.parse().unwrap(), U128(1))],
+    );
+    assert_eq!(v.get_vault().risk_feeder.unwrap().as_str(), FEEDER);
+    let venues = v.get_venues();
+    assert_eq!(venues.len(), 1);
+    assert_eq!(venues[0].max_move.0, 20 * UNIT);
+}

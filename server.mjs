@@ -37,8 +37,19 @@ async function query(net, params) {
 }
 const view = async (net, c, m, a = {}) => JSON.parse(Buffer.from((await query(net, { request_type: 'call_function', account_id: c, method_name: m, args_base64: Buffer.from(JSON.stringify(a)).toString('base64') })).result).toString());
 
-async function vaultSnapshot(net) {
-  const dep = JSON.parse(await readFile(path.join(DIR, 'demo', `deployment-${net}.json`), 'utf8'));
+const deployment = async (net) => JSON.parse(await readFile(path.join(DIR, 'demo', `deployment-${net}.json`), 'utf8'));
+
+/** The demo vault, or a vault made by the factory (`<name>.<factory>`). Anything else is refused. */
+async function vaultId(net, asked) {
+  const dep = await deployment(net);
+  if (!asked || asked === dep.vault) return dep.vault;
+  if (dep.factory && asked.endsWith(`.${dep.factory}`) && /^[a-z0-9-]{2,32}$/.test(asked.slice(0, -dep.factory.length - 1))) return asked;
+  return null;
+}
+
+async function vaultSnapshot(net, id) {
+  const base = await deployment(net);
+  const dep = id && id !== base.vault ? { vault: id, factory: base.factory, feeder: base.feeder, agent_key: base.agent_key } : base;
   const [keys, acct, vault, venues] = await Promise.all([
     query(net, { request_type: 'view_access_key_list', account_id: dep.vault }),
     query(net, { request_type: 'view_account', account_id: dep.vault }),
@@ -76,10 +87,10 @@ function idleOf(snap) {
 }
 
 /** Live inputs and vault, then the same inputs changed by one scenario: verdicts and plans side by side. */
-async function whatIf(net, id) {
-  const s = scenario(id);
+async function whatIf(net, sid, id) {
+  const s = scenario(sid);
   if (!s) return null;
-  const [base, snap] = await Promise.all([inputs(), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+  const [base, snap] = await Promise.all([inputs(), cached(`vault-${net}-${id}`, 15_000, () => vaultSnapshot(net, id))]);
   const before = judgeInputs(base);
   const after = judgeInputs(s.apply(base));
   const idle = idleOf(snap);
@@ -92,8 +103,17 @@ async function whatIf(net, id) {
   };
 }
 
-async function nextPlan(net) {
-  const [report, snap] = await Promise.all([scan(), cached(`vault-${net}`, 15_000, () => vaultSnapshot(net))]);
+async function factoryInfo(net) {
+  const dep = await deployment(net);
+  if (!dep.factory) return { network: net, factory: null, vaults: [] };
+  const [config, vaults, min] = await Promise.all([
+    view(net, dep.factory, 'get_config'), view(net, dep.factory, 'get_vaults', { limit: 200 }), view(net, dep.factory, 'get_min_deposit'),
+  ]);
+  return { network: net, factory: dep.factory, min_deposit: min, config, vaults: vaults.map(([id, r]) => ({ id, owner: r.owner, created_at: new Date(Number(BigInt(r.created_ns) / 1_000_000n)).toISOString() })) };
+}
+
+async function nextPlan(net, id) {
+  const [report, snap] = await Promise.all([scan(), cached(`vault-${net}-${id}`, 15_000, () => vaultSnapshot(net, id))]);
   const idle = idleOf(snap);
   const steps = planMoves(report, snap.venues, idle, undefined, 'policy', snap.vault).map(stepJSON);
   return { network: net, read_at: snap.read_at, scan_at: report.generated_at, cooldown_ms: cooldownLeft(snap.vault),
@@ -142,13 +162,30 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/scan') return send(res, 200, await scan());
     if (url.pathname === '/api/scenarios') return send(res, 200, SCENARIOS.map(scenarioMeta));
     if (url.pathname === '/api/scenario') {
-      const r = await whatIf(NET, url.searchParams.get('id'));
+      const r = await whatIf(NET, url.searchParams.get('id'), (await deployment(NET)).vault);
       return r ? send(res, 200, r) : send(res, 404, { error: 'unknown scenario', ids: SCENARIOS.map((x) => x.id) });
     }
-    if (url.pathname === '/api/vault') return send(res, 200, await cached(`vault-${NET}`, 15_000, () => vaultSnapshot(NET)));
-    if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(NET));
+    if (url.pathname === '/api/vault' || url.pathname === '/api/plan') {
+      const id = await vaultId(NET, url.searchParams.get('vault'));
+      if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
+      if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(NET, id));
+      return send(res, 200, await cached(`vault-${NET}-${id}`, 15_000, () => vaultSnapshot(NET, id)));
+    }
+    if (url.pathname === '/api/name') {
+      const dep = await deployment(NET);
+      const n = url.searchParams.get('n') || '';
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(n) || n.length < 2 || n.length > 32) return send(res, 200, { name: n, valid: false });
+      const taken = await query(NET, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
+      return send(res, 200, { name: n, valid: true, free: !taken, account: `${n}.${dep.factory}` });
+    }
+    if (url.pathname === '/api/factory') return send(res, 200, await cached(`factory-${NET}`, 15_000, () => factoryInfo(NET)));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
-    if (url.pathname === '/api/agent') return send(res, 200, await readFile(path.join(DIR, 'demo', `agent-${NET}.json`)));
+    if (url.pathname === '/api/agent') {
+      const id = await vaultId(NET, url.searchParams.get('vault'));
+      if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
+      const file = id === (await deployment(NET)).vault ? path.join(DIR, 'demo', `agent-${NET}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
+      return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: NET, vault: id, moves: [] })));
+    }
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
     let p = decodeURIComponent(url.pathname);
     if (p.endsWith('/')) p += 'index.html';

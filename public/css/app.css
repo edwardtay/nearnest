@@ -40,6 +40,9 @@ svg use{pointer-events:none}
 .side a{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:2px solid transparent;border-radius:10px;color:var(--ink2);font-weight:600;font-size:14.5px;text-decoration:none}
 .side a svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .side a:hover{background:var(--bg)}
+.side a .s{display:none}
+@media (max-width:900px){.side a .s{display:inline}}
+.nb{white-space:nowrap}
 .side a[aria-current="page"]{background:var(--bg);border-color:var(--ink);color:var(--ink);box-shadow:3px 3px 0 var(--ink)}
 .side a[aria-current="page"] svg{stroke:var(--accent-ink)}
 .side-card{margin-top:12px;border:2px solid var(--border-strong);border-radius:12px;background:var(--bg);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
@@ -60,7 +63,7 @@ svg use{pointer-events:none}
 
 .card{background:var(--bg);border:2px solid var(--border-strong);border-radius:14px;padding:16px;min-width:0}
 .card h3{margin:0;font-size:15px}
-.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:6px 10px;margin-bottom:6px;flex-wrap:wrap}
 .more{font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;min-height:44px}
 
 /* -------------------------------------------------------------- overview */
@@ -192,6 +195,31 @@ svg use{pointer-events:none}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:var(--ink);color:#fff;padding:10px 14px;border-radius:10px;font-size:13.5px}
 
 /* --------------------------------------------------------------- responsive */
+/* my vault */
+.steps{margin:0 0 14px;padding-left:22px;display:grid;gap:8px;font-size:14.5px}
+.steps code,.mine-sub code{font:500 12.5px var(--mono);overflow-wrap:break-word}
+.field{display:block;font-weight:600;font-size:13.5px;margin:6px 0 6px}
+.name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.inp{min-height:44px;padding:0 12px;border:2px solid var(--border-strong);border-radius:10px;font:500 15px var(--mono);color:var(--ink);background:var(--bg);width:min(260px,100%)}
+.inp:focus{outline:2px solid var(--accent-ink);outline-offset:1px;border-color:var(--ink)}
+.suffix{font-size:13px;color:var(--soft);overflow-wrap:break-word;min-width:0}
+.hint{margin:6px 0 12px;font-size:13px;color:var(--soft);min-height:18px}
+.hint.bad{color:var(--bad)} .hint.ok{color:var(--ok)}
+.who{font-size:13px;color:var(--soft);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.who button{min-height:32px;padding:0 10px;border:2px solid var(--border-strong);border-radius:8px;background:var(--bg);cursor:pointer;font:600 12.5px var(--font);color:var(--ink)}
+.mine-sub{margin:0 0 10px;font-size:14px;color:var(--ink2)}
+.acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.acts button{min-height:52px;padding:8px 12px;text-align:left;border:2px solid var(--border-strong);border-radius:10px;background:var(--bg);cursor:pointer;color:var(--ink);font:600 14px/1.25 var(--font);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.acts button:last-child:nth-child(odd){grid-column:1/-1}
+.acts button small{font:500 12px/1.3 var(--font);color:var(--soft)}
+.acts button:hover{border-color:var(--ink)}
+.acts button.warn{border-color:#fca5a5}
+.acts button:disabled{opacity:.55;cursor:not-allowed}
+.vault-list{list-style:none;margin:0;padding:0}
+.vault-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.vault-list li:last-child{border-bottom:0}
+.vault-list .mono{overflow-wrap:break-word;min-width:0}
+
 /* what if */
 .scen{display:grid;gap:10px;grid-template-columns:repeat(5,minmax(0,1fr))}
 .scen button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-height:64px;padding:10px 12px;text-align:left;
@@ -221,12 +249,14 @@ svg use{pointer-events:none}
     border-top:2px solid var(--border-strong);padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
   .side a{flex:1 1 0;flex-direction:column;justify-content:center;gap:2px;min-height:var(--tab-h);padding:0 2px;font-size:11.5px;border-radius:10px;min-width:0}
   .side a span{white-space:nowrap}
+  .side a .l{display:none}
   .side a[aria-current="page"]{box-shadow:none;border-color:transparent;background:#fef3c7;color:var(--ink)}
   .side-card{display:none}
   .pair,.tiles{grid-template-columns:minmax(0,1fr)}
   .toast{bottom:calc(var(--tab-h) + 20px)}
 }
 @media (max-width:640px){
+  .acts{grid-template-columns:minmax(0,1fr)}
   :root{--gut:12px}
   body{font-size:14px}
   .badge:not(:first-child){display:none}

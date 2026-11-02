@@ -21,5 +21,12 @@
       "vault": "vault.nearnest-mvz1l0ba.testnet",
       "note": "built without --cfg near: rejections trap without messages"
     }
-  ]
+  ],
+  "factory": "nearnest-factory-mvzmesjc.testnet",
+  "factory_txs": {
+    "deploy": "https://testnet.nearblocks.io/txns/CtKmibwgG43LPdMyLtdMWo7v6BUUk8XkEZXUWGNspr1n",
+    "redeploy_init_gas_fix": "https://testnet.nearblocks.io/txns/BeH1apAdif4fLYSSH9vS846a227VFBysns8jpG1gz4xM",
+    "visitor_create_failed_out_of_gas": "https://testnet.nearblocks.io/txns/8KteqwkrxhKawmuVXdq799ZTLcDoS5cGPK6mfzHaesen",
+    "visitor_refund_claimed": "https://testnet.nearblocks.io/txns/9YaSdE1XFewm8jBKjXopwZrKeubbsyupkTUBQnXydX2S"
+  }
 }

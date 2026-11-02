@@ -1,0 +1,103 @@
+{
+  "network": "testnet",
+  "vault": "demo.nearnest-factory-mvzmesjc.testnet",
+  "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
+  "updated_at": "2026-11-02T19:02:30.265Z",
+  "last_run": {
+    "at": "2026-11-02T19:02:30.265Z",
+    "result": "nothing to do: waiting for idle funds",
+    "scenario": null
+  },
+  "mirror": {
+    "burrow-usdc": "rhea-usdc",
+    "linear": "linear"
+  },
+  "moves": [
+    {
+      "at": "2026-11-02T18:58:58.928Z",
+      "scenario": null,
+      "kind": "tighten",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.04997634246699045,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; $11.2M returned or frozen"
+      ],
+      "amount": "25000000",
+      "target": "25000000",
+      "signer": "feeder",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/3NQridju4o7N4qC3hvNcxB2Dw1EVF9Y6CPHSNNw1im93"
+    },
+    {
+      "at": "2026-11-02T18:59:05.833Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.04997584530350332,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; $11.2M returned or frozen"
+      ],
+      "amount": "20000000",
+      "target": "25000000",
+      "signer": "agent",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/ACn4Y81vdxuvjBLuduhEnpSkcQRHEeqy3FtjzkVY5P7W"
+    },
+    {
+      "at": "2026-11-02T19:00:13.341Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.04997590841745211,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 201 days ago; $11.2M returned or frozen"
+      ],
+      "amount": "5000000",
+      "target": "25000000",
+      "signer": "agent",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/6EQ6Q7stzZ4fAAm5CJoS9dm6Q55N82kpqjL83BUJQCWF"
+    },
+    {
+      "at": "2026-11-02T19:01:19.589Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "linear",
+      "mirrors": "linear",
+      "verdict": "allow",
+      "apr": 0.0456424745682098,
+      "reasons": [],
+      "amount": "1000000000000000000000000",
+      "target": "3000000000000000000000000",
+      "signer": "agent",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/Ft2mBVppda51WZgLNidKzzH4AVGkTuFdhQbi1QrBNhq"
+    },
+    {
+      "at": "2026-11-02T19:02:28.062Z",
+      "scenario": null,
+      "kind": "supply",
+      "venue": "linear",
+      "mirrors": "linear",
+      "verdict": "allow",
+      "apr": 0.045642438587811585,
+      "reasons": [],
+      "amount": "182358529347431099999998",
+      "target": "3000000000000000000000000",
+      "signer": "agent",
+      "ok": true,
+      "reason": null,
+      "tx": "https://testnet.nearblocks.io/txns/J9BjdZNpRBZ2aAz34eQJfNT7UQkbRCnBeEWAakZVhPyg"
+    }
+  ]
+}

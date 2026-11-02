@@ -12,6 +12,8 @@ Live page: https://nearnest.web3wagmi.com
 4. **Ask "what if".** The What if view applies one event to the live mainnet read (USDC at $0.991, a fresh Rhea or LiNEAR exploit, a drained USDC pool, or the April hack ageing out) and runs the same policy and planner against the vault. For the depeg it also shows the recorded testnet response: the risk feeder blocked Burrow USDC, the agent key pulled the 12.5 USDC out, the owner reopened the venue and the agent went back in.
 5. **See a stolen key fail.** The Drill view runs 28 checks with the real keys, each with its transaction. 14 attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a move past the daily limit, a supply past the on-chain risk cap, a supply while paused, a supply into a blocked venue, the deleted agent key, and the risk feeder trying to raise a cap, unpause or unblock. 14 permitted operations go through, including exits while paused or blocked, the feeder deleting the agent key and exiting without it, and the owner restoring everything.
 
+6. **Make your own vault.** In My vault, connect a NEAR testnet wallet and create `<name>.nearnest-factory-mvzmesjc.testnet` in one transaction. The factory deploys the vault, adds the agent's function-call key (no full-access key) and makes you the owner. Fund it with test USDC and NEAR, and the agent runs it under the same rules; the owner buttons withdraw to you, pause, and remove or restore the agent's key.
+
 To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
 
 ## How it works
@@ -60,6 +62,10 @@ The full authority table, threats and the drill check behind each are in [`docs/
 | `usdc-run`: USDC pool at 97% utilization | blocks Rhea Lend USDC; exit |
 | `year-later`: 18 April 2027 | the April incident ages out; rNEAR goes to full size, the lending pools stay capped by utilization |
 
+### Factory
+
+[`factory/src/lib.rs`](factory/src/lib.rs) embeds the vault's wasm. `create_vault(name)` with at least `get_min_deposit` attached (about 4.1 NEAR, almost all of it the vault code's storage) runs one batch on `<name>.<factory>`: create the account, transfer the deposit, deploy the vault, add the agent's function-call key, call `new_preset` with the caller as owner. If the batch fails (a taken name, out of gas) the deposit is credited back and claimed with `claim_refund`; the first visitor vault on testnet failed this way and its refund went through. The factory keeps none of the deposit. On mainnet, NEAR global contracts would let every vault share one copy of the code instead of paying 3.3 NEAR of storage each.
+
 ### Contract interface
 
 | Who | Methods |
@@ -86,7 +92,7 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
-# policy, planner, scenario and contract tests (27 JS, 25 Rust)
+# policy, planner, scenario and contract tests (27 JS, 31 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -105,6 +111,8 @@ node run-agent.mjs --watch 30  # run again every 30 minutes in the foreground
 node run-agent.mjs --scenario usdc-depeg   # respond to a simulated event for real
 node owner-unblock.mjs burrow-usdc         # owner reopens the venue afterwards
 node owner-upgrade.mjs                     # owner deploys new vault code, then syncs positions
+node factory-setup.mjs                     # testnet factory plus one visitor vault, end to end
+node run-all.mjs --loop                    # the agent for the demo vault and every factory vault
 node attack.mjs                # the compromised-key drill, writes demo/attack-testnet.json
 
 # the page
@@ -115,6 +123,8 @@ cd .. && npm start             # http://localhost:8787
 
 | Role | Account |
 |---|---|
+| Factory | [`nearnest-factory-mvzmesjc.testnet`](https://testnet.nearblocks.io/address/nearnest-factory-mvzmesjc.testnet) |
+| First visitor vault | [`demo.nearnest-factory-mvzmesjc.testnet`](https://testnet.nearblocks.io/address/demo.nearnest-factory-mvzmesjc.testnet) |
 | Vault | [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) |
 | Owner | `nearnest-mvz1l0ba.testnet` |
 | Risk feeder | `risk.nearnest-mvz1l0ba.testnet` |
@@ -126,6 +136,8 @@ Setup transactions are in [`demo/deployment-testnet.json`](demo/deployment-testn
 
 ```
 contract/   Rust vault contract and unit tests
+factory/    Rust factory: anyone creates their own vault in one call
+web/        builds public/js/wallet.js (NEAR Wallet Selector); the server needs no install
 agent/      venue reads, risk policy, report builder, scan CLI, policy tests
 scripts/    testnet setup, agent run loop, attack drill, inspection helpers
 demo/       public deployment ids and recorded runs (no secrets)

@@ -29,6 +29,7 @@ const GAS_VENUE_CALL: Gas = Gas::from_tgas(60);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 const GAS_VIEW: Gas = Gas::from_tgas(10);
+const GAS_STORAGE: Gas = Gas::from_tgas(10);
 const DAY_NS: u64 = 86_400 * 1_000_000_000;
 /// Native NEAR the vault keeps for its own storage; the agent can never stake it.
 const NATIVE_RESERVE: NearToken = NearToken::from_millinear(500);
@@ -207,6 +208,40 @@ impl Vault {
             day_start_ns: 0,
             moves_today: 0,
         }
+    }
+
+    /// One-call setup for vaults made by the factory: venues, per-move caps and the
+    /// risk feeder at creation, and storage registration on each listed contract, paid
+    /// from the vault's own balance.
+    #[init]
+    pub fn new_preset(
+        owner: AccountId,
+        agent_key: PublicKey,
+        policy: Policy,
+        risk_feeder: Option<AccountId>,
+        venues: Vec<(String, Venue)>,
+        max_moves: Vec<(String, U128)>,
+        storage: Vec<(AccountId, U128)>,
+    ) -> Self {
+        let mut v = Self::new(owner, agent_key, policy);
+        v.risk_feeder = risk_feeder;
+        for (id, venue) in venues {
+            require!(id.len() <= 64 && venue.extra_decimals <= 24, "bad venue");
+            v.venues.insert(id, venue);
+        }
+        for (token, amount) in max_moves {
+            v.max_move.insert(token, amount.0);
+        }
+        for (target, deposit) in storage {
+            Promise::new(target).function_call(
+                "storage_deposit",
+                json!({"account_id": env::current_account_id(), "registration_only": true}).to_string().into_bytes(),
+                NearToken::from_yoctonear(deposit.0),
+                GAS_STORAGE,
+            );
+        }
+        emit("vault_created", json!({"owner": v.owner}));
+        v
     }
 
     // ---------------------------------------------------------------- agent

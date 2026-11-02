@@ -5,7 +5,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Account ids break only after a dot, never inside a word.
-const acct = (s) => esc(s).replace(/\./g, '.<wbr>');
+const acct = (s) => esc(s).split('.').map((p) => `<span class="nb">${p}</span>`).join('.<wbr>');
 const pct = (x) => `${(x * 100).toFixed(2)}%`;
 const num = (x, d = 2) => Number(x).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const usd = (x) => `$${Number(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -57,11 +57,12 @@ async function getJSON(url) {
 
 // ------------------------------------------------------------------- router
 
-const VIEWS = ['overview', 'yield', 'vault', 'agent', 'whatif', 'drill', 'about'];
+const VIEWS = ['overview', 'mine', 'yield', 'vault', 'agent', 'whatif', 'drill', 'about'];
 function route() {
   const [hv, arg] = location.hash.slice(1).split('/');
   const v = VIEWS.includes(hv) ? hv : 'overview';
   if (v === 'whatif') openWhatIf(arg);
+  if (v === 'mine') openMine();
   document.querySelectorAll('.view').forEach((el) => { el.hidden = el.dataset.view !== v; });
   document.querySelectorAll('.side a').forEach((a) => (a.dataset.v === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   const h = $(`[data-view="${v}"] h2`).textContent;
@@ -291,6 +292,146 @@ function renderMoves(a) {
   $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
   const lr = a.last_run ? `Last agent run ${new Date(a.last_run.at).toISOString().slice(0, 16).replace('T', ' ')} UTC: ${a.last_run.result}. ` : '';
   $('#moves-foot').textContent = `${lr}The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Every round reads mainnet risk again before the agent signs.`;
+}
+
+// ----------------------------------------------------------------- my vault
+
+const USDC_T = 'usdc.fakes.testnet';
+const ONE_NEAR = 10n ** 24n;
+const mine = { w: null, account: null, factory: null, vault: null, snap: null };
+
+async function loadWallet() {
+  if (mine.w) return mine.w;
+  if (!document.querySelector('link[href="/css/wallet-modal.css"]')) {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/wallet-modal.css'; document.head.append(l);
+  }
+  const w = await import('/js/wallet.js');
+  mine.account = await w.init('testnet');
+  w.onChange((a) => { mine.account = a; renderMine(); });
+  mine.w = w;
+  return w;
+}
+
+async function loadFactory(force) {
+  if (!mine.factory || force) mine.factory = await getJSON('/api/factory');
+  document.querySelectorAll('.factory-id').forEach((el) => { el.innerHTML = acct(mine.factory.factory); });
+  const vs = mine.factory.vaults;
+  $('#fac-count').textContent = `${vs.length} so far`;
+  $('#fac-list').innerHTML = vs.map((v) => `<li><span class="mono">${acct(v.id)}<small class="acct"> owned by ${acct(v.owner)}</small></span>
+    <a href="https://testnet.nearblocks.io/address/${esc(v.id)}">Explorer</a></li>`).join('') || '<li class="loading">None yet. Be the first.</li>';
+}
+
+// Local preview of the signed-in screens (render only, nothing can be signed): localhost only.
+const PREVIEW_AS = location.hostname === 'localhost' ? new URLSearchParams(location.search).get('preview_as') : null;
+
+async function openMine() {
+  if (PREVIEW_AS) { mine.account = PREVIEW_AS; await loadFactory().catch(() => {}); return renderMine(); }
+  try { await loadFactory(); } catch (e) { $('#fac-list').innerHTML = `<li class="loading">Could not read the factory: ${esc(e.message)}</li>`; }
+  try { await loadWallet(); } catch (e) { toast('The wallet could not load'); console.error(e); }
+  renderMine();
+}
+
+function whoHTML(a) {
+  return `Signed in as <b class="mono">${acct(a)}</b> <button type="button" data-act="signout">Sign out</button>`;
+}
+
+async function renderMine() {
+  const a = mine.account;
+  $('#mine-connect').hidden = !!a;
+  if (!a || !mine.factory) { $('#mine-create').hidden = true; $('#mine-vault').hidden = true; return; }
+  const own = mine.factory.vaults.filter((v) => v.owner === a);
+  if (!own.length) {
+    $('#mine-create').hidden = false; $('#mine-vault').hidden = true;
+    $('#mine-who-1').innerHTML = whoHTML(a);
+    const min = BigInt(mine.factory.min_deposit);
+    $('#mine-create-btn').textContent = `Create vault (attach ${num(Number(min + ONE_NEAR) / 1e24, 2)} NEAR)`;
+    if (!$('#mine-name').value) $('#mine-name').value = a.split('.')[0].replace(/[^a-z0-9-]/g, '').slice(0, 24) || 'my-vault';
+    checkName();
+    return;
+  }
+  $('#mine-create').hidden = true; $('#mine-vault').hidden = false;
+  $('#mine-who-2').innerHTML = whoHTML(a);
+  mine.vault = own[own.length - 1].id;
+  const [snap, plan] = await Promise.all([getJSON(`/api/vault?vault=${encodeURIComponent(mine.vault)}`), getJSON(`/api/plan?vault=${encodeURIComponent(mine.vault)}`)]);
+  mine.snap = snap;
+  const keys = snap.access_keys;
+  const full = keys.filter((k) => k.access_key.permission === 'FullAccess').length;
+  const agentKey = keys.some((k) => k.public_key === snap.vault.agent_key);
+  $('#mine-title').innerHTML = `<a href="https://testnet.nearblocks.io/address/${esc(mine.vault)}">${acct(mine.vault)}</a>`;
+  const idleUsdc = BigInt(snap.balances[USDC_T] ?? 0);
+  $('#mine-sub').innerHTML = `${full ? `<b>${full} full-access key.</b>` : 'No full-access key.'} ${agentKey ? 'The agent key is on the vault.' : '<b>The agent key is removed.</b>'}
+    ${snap.vault.paused ? '<b>Paused.</b>' : ''} Idle in the vault: ${units(idleUsdc, 'usdc')} USDC and ${units(snap.native_yocto, 'near')} NEAR (most of the NEAR pays for the vault's code storage).`;
+  $('#mine-tbl tbody').innerHTML = snap.venues.map((x) => {
+    const st = x.venue.blocked_reason ? `<span class="pill block">Blocked</span><div class="note">${esc(x.venue.blocked_reason)}</div>` : '<span class="pill allow">Open</span>';
+    return `<tr><th scope="row">${ent(VENUE[x.id]?.name || x.id, LOGO[x.venue.contract], x.venue.contract)}</th><td>${st}</td>
+      <td class="n">${units(x.position, x.venue.token)} ${sym(x.venue.token)}</td>
+      <td class="n">${units(x.effective_cap ?? x.venue.max_alloc, x.venue.token)}${x.risk_cap ? '<div class="note">risk cap</div>' : ''}</td>
+      <td class="n">${units(x.max_move, x.venue.token)}</td></tr>`;
+  }).join('');
+  $('#mine-plan').innerHTML = planHTML(plan.steps);
+  const acts = [
+    { id: 'mint', t: 'Get 50 test USDC', s: 'Public faucet token, minted into the vault', ok: true },
+    { id: 'near', t: 'Send 1 NEAR', s: 'For the agent to stake in LiNEAR', ok: true },
+    { id: 'withdraw', t: `Withdraw ${units(idleUsdc, 'usdc')} USDC to me`, s: 'owner_withdraw: idle USDC to your account', ok: idleUsdc > 0n },
+    snap.vault.paused ? { id: 'unpause', t: 'Unpause', s: 'Supply moves resume', ok: true } : { id: 'pause', t: 'Pause', s: 'Stops supply; exits still work', ok: true, warn: true },
+    agentKey ? { id: 'rmkey', t: 'Remove the agent key', s: 'The agent can no longer sign for this vault', ok: true, warn: true } : { id: 'addkey', t: 'Restore the agent key', s: 'Function-call key, 0.5 NEAR gas allowance', ok: true },
+    ...snap.venues.filter((x) => x.venue.blocked_reason).map((x) => ({ id: `unblock:${x.id}`, t: `Unblock ${VENUE[x.id]?.name || x.id}`, s: 'Only the owner can reopen a venue', ok: true })),
+  ];
+  $('#mine-acts').innerHTML = acts.map((b) => `<button type="button" data-act="${esc(b.id)}" class="${b.warn ? 'warn' : ''}" ${b.ok ? '' : 'disabled'}>${esc(b.t)}<small>${esc(b.s)}</small></button>`).join('');
+}
+
+let nameTimer;
+function checkName() {
+  clearTimeout(nameTimer);
+  const n = $('#mine-name').value.trim().toLowerCase();
+  const hint = $('#mine-name-hint');
+  nameTimer = setTimeout(async () => {
+    const r = await getJSON(`/api/name?n=${encodeURIComponent(n)}`).catch(() => null);
+    if (!r) { hint.textContent = ''; return; }
+    hint.className = `hint ${r.valid && r.free ? 'ok' : 'bad'}`;
+    hint.textContent = !r.valid ? '2 to 32 of a to z, 0 to 9 and single dashes.' : r.free ? `${r.account} is free.` : `${r.account} is taken.`;
+    $('#mine-create-btn').disabled = !(r.valid && r.free);
+  }, 250);
+}
+
+async function act(id) {
+  const w = mine.w;
+  if (id === 'signout') { await w.signOut(); return; }
+  if (id === 'signin') { w.signIn(); return; }
+  const v = mine.vault;
+  const runs = {
+    create: () => w.send(mine.factory.factory, [{ method: 'create_vault', args: { name: $('#mine-name').value.trim().toLowerCase() }, deposit: String(BigInt(mine.factory.min_deposit) + ONE_NEAR), tgas: 300 }]),
+    mint: () => w.send(USDC_T, [{ method: 'mint', args: { account_id: v, amount: String(50e6) }, tgas: 30 }]),
+    near: () => w.send(v, [{ transfer: String(ONE_NEAR) }]),
+    withdraw: () => w.send(v, [{ method: 'owner_withdraw', args: { token: USDC_T, amount: String(mine.snap.balances[USDC_T]) }, tgas: 50 }]),
+    pause: () => w.send(v, [{ method: 'pause', tgas: 30 }]),
+    unpause: () => w.send(v, [{ method: 'unpause', tgas: 30 }]),
+    rmkey: () => w.send(v, [{ method: 'remove_agent_key', tgas: 30 }]),
+    addkey: () => w.send(v, [{ method: 'add_agent_key', args: { allowance: String(ONE_NEAR / 2n) }, tgas: 30 }]),
+  };
+  const run = id.startsWith('unblock:') ? () => w.send(v, [{ method: 'unblock_venue', args: { venue_id: id.slice(8) }, tgas: 30 }]) : runs[id];
+  if (!run) return;
+  try {
+    const o = await run();
+    const fail = o && [o.status, ...(o.receipts_outcome || []).map((r) => r.outcome.status)].find((x) => x?.Failure);
+    toast(fail ? 'The transaction was refused' : 'Sent');
+  } catch (e) {
+    toast(String(e.message || e).slice(0, 80));
+  }
+  setTimeout(async () => { await loadFactory(true).catch(() => {}); renderMine(); }, 2500);
+}
+
+document.querySelector('[data-view="mine"]').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (b) act(b.dataset.act);
+});
+$('#mine-signin').addEventListener('click', async () => { try { (await loadWallet()).signIn(); } catch { toast('The wallet could not load'); } });
+$('#mine-create-btn').addEventListener('click', () => act('create'));
+$('#mine-name').addEventListener('input', checkName);
+// Browser wallets return here with ?transactionHashes=... after signing.
+if (new URLSearchParams(location.search).has('transactionHashes') || new URLSearchParams(location.search).has('account_id')) {
+  history.replaceState(null, '', `${location.pathname}#mine`);
+  setTimeout(() => toast('Signed in your wallet'), 300);
 }
 
 // ------------------------------------------------------------------ what if

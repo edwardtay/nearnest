@@ -6,7 +6,7 @@
 // The testnet vault mirrors mainnet venues: its Burrow testnet market takes the
 // judgement of Rhea Lend USDC on mainnet, its LiNEAR testnet venue takes LiNEAR's.
 //
-// Usage: node run-agent.mjs [testnet] [--dry] [--loop] [--scenario <id>] [--watch <min>]
+// Usage: node run-agent.mjs [testnet] [--vault <id>] [--dry] [--loop] [--scenario <id>] [--watch <min>]
 //   --dry       print the plan, sign nothing
 //   --loop      keep going (waiting out the cooldown) until the plan is empty
 //   --watch     run again every <min> minutes (a foreground process, nothing scheduled)
@@ -22,7 +22,7 @@ import { scenario, SCENARIOS } from '../agent/scenarios.mjs';
 import { planMoves, spendableNative, cooldownLeft, MIRROR } from '../agent/plan.mjs';
 
 const args = process.argv.slice(2);
-const net = args.find((a, k) => !a.startsWith('--') && args[k - 1] !== '--scenario') || 'testnet';
+const net = args.find((a, k) => !a.startsWith('--') && !['--scenario', '--vault', '--watch'].includes(args[k - 1])) || 'testnet';
 const DRY = args.includes('--dry');
 const LOOP = args.includes('--loop');
 const SC = args.includes('--scenario') ? scenario(args[args.indexOf('--scenario') + 1]) : null;
@@ -30,8 +30,11 @@ if (args.includes('--scenario') && !SC) { console.error(`unknown scenario; one o
 const DECIMALS = { 'usdc.fakes.testnet': 6, near: 24 };
 
 const s = loadState(net);
-const nc = await near(net, { signers: { [s.vault]: s.agentKey.secret, [s.feeder]: s.signers[s.feeder] } });
-const agent = await nc.account(s.vault);
+// --vault <id>: any vault whose agent key is ours (the demo vault, or one a visitor made
+// through the factory). The same agent key is a function-call key on each of them.
+const VAULT = args.includes('--vault') ? args[args.indexOf('--vault') + 1] : s.vault;
+const nc = await near(net, { signers: { [VAULT]: s.agentKey.secret, [s.feeder]: s.signers[s.feeder] } });
+const agent = await nc.account(VAULT);
 const feeder = await nc.account(s.feeder);
 const ex = NET[net].explorer;
 
@@ -51,16 +54,16 @@ const fc = (method, a) => transactions.functionCall(method, a, 150n * TGAS, 0n);
 
 /** Read the vault and plan its moves with the shared planner. */
 async function plan(report) {
-  const [vault, venues, acct] = await Promise.all([view(s.vault, 'get_vault'), view(s.vault, 'get_venues'),
-    nc.connection.provider.query({ request_type: 'view_account', finality: 'final', account_id: s.vault })]);
+  const [vault, venues, acct] = await Promise.all([view(VAULT, 'get_vault'), view(VAULT, 'get_venues'),
+    nc.connection.provider.query({ request_type: 'view_account', finality: 'final', account_id: VAULT })]);
   const idle = { near: spendableNative(acct) };
   for (const tk of new Set(venues.map((v) => v.venue.token).filter((x) => x !== 'near'))) {
-    idle[tk] = BigInt(await view(tk, 'ft_balance_of', { account_id: s.vault }));
+    idle[tk] = BigInt(await view(tk, 'ft_balance_of', { account_id: VAULT }));
   }
   // Unstaked NEAR is claimable once the staking venue says so.
   for (const v of venues) {
     if (v.venue.kind === 'LiquidStake' && BigInt(v.unbonding ?? 0) > 0n) {
-      v.claimable = !!(await view(v.venue.contract, 'get_account', { account_id: s.vault }).catch(() => null))?.can_withdraw;
+      v.claimable = !!(await view(v.venue.contract, 'get_account', { account_id: VAULT }).catch(() => null))?.can_withdraw;
     }
   }
   // Reads use final finality, a block or two behind; skip cap changes this run already sent.
@@ -74,7 +77,7 @@ const fmtStep = (p) => {
 };
 
 async function execute(step) {
-  const send = (actor, actions) => actor.signAndSendTransaction({ receiverId: s.vault, actions, returnError: true });
+  const send = (actor, actions) => actor.signAndSendTransaction({ receiverId: VAULT, actions, returnError: true });
   let o;
   if (step.kind === 'block') o = await send(feeder, [fc('block_venue', { venue_id: step.venue, reason: step.reason })]);
   else if (step.kind === 'tighten') o = await send(feeder, [fc('set_risk_cap', { venue_id: step.venue, cap: String(step.amount) })]);
@@ -142,14 +145,15 @@ async function runOnce() {
     console.log(`\n${result}`);
   }
   if (DRY) return;
-  const file = path.join(ROOT, 'demo', `agent-${net}.json`);
+  const file = VAULT === s.vault ? path.join(ROOT, 'demo', `agent-${net}.json`) : path.join(ROOT, 'demo', 'vaults', `${VAULT}.json`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   let prev = {};
   try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
   const now = new Date().toISOString();
-  const out = { network: net, vault: s.vault, agent_key: s.agentKey.public, updated_at: now,
+  const out = { network: net, vault: VAULT, agent_key: s.agentKey.public, updated_at: now,
     last_run: { at: now, result, scenario: SC?.id ?? null }, mirror: MIRROR, moves: [...(prev.moves || []), ...log].slice(-50) };
   fs.writeFileSync(file, JSON.stringify(out, null, 2));
-  console.log(`\nlogged ${log.length} move(s) and the run result to demo/agent-${net}.json`);
+  console.log(`\nlogged ${log.length} move(s) and the run result to ${path.relative(ROOT, file)}`);
 }
 
 await runOnce();

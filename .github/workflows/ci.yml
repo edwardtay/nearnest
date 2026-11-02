@@ -16,3 +16,6 @@ jobs:
       - name: Contract wasm build
         working-directory: contract
         run: rustup target add wasm32-unknown-unknown && ./build.sh
+      - name: Factory unit tests (embeds the vault wasm built above)
+        working-directory: factory
+        run: cargo test
