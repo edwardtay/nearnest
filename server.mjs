@@ -5,6 +5,8 @@
      /api/plan    the move the agent would make next (read only, nothing is signed)
      /api/agent   moves the agent made, with the policy reasons and transaction links
      /api/scenario?id=  a what-if event run through the same policy and planner (read only)
+     /api/fund/tokens   origins a vault can be funded from through NEAR Intents (1Click), with prices
+     /api/fund/quote?asset=&amount=  a dry 1Click quote: that asset on its own chain -> NEAR USDC to the vault
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -12,6 +14,7 @@ import path from 'node:path';
 import { readInputs, judgeInputs } from './agent/report.mjs';
 import { SCENARIOS, scenario, scenarioMeta } from './agent/scenarios.mjs';
 import { planMoves, spendableNative, cooldownLeft, stepJSON } from './agent/plan.mjs';
+import * as intents from './agent/intents.mjs';
 
 const DIR = path.dirname(new URL(import.meta.url).pathname);
 const PUB = path.join(DIR, 'public');
@@ -120,6 +123,34 @@ async function nextPlan(net, id) {
     idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
 }
 
+/** Where Intents deliveries go: the mainnet vault once deployed, else a stand-in mainnet account (dry quotes only). */
+async function fundRecipient() {
+  const mainnet = process.env.NEARNEST_MAINNET_VAULT || (await deployment('mainnet').catch(() => null))?.vault;
+  return mainnet ? { recipient: mainnet, stand_in: false } : { recipient: intents.STAND_IN, stand_in: true };
+}
+
+async function fundTokens() {
+  const [list, to] = await Promise.all([cached('fund-tokens', 600_000, () => intents.tokens()), fundRecipient()]);
+  return { ...to, testnet_vault: (await deployment(NET)).vault, destination: { asset: intents.USDC_ASSET, symbol: 'USDC', chain: 'NEAR' }, tokens: list };
+}
+
+async function fundQuote(assetId, amount) {
+  const { tokens, recipient, stand_in } = await fundTokens();
+  const t = tokens.find((x) => x.assetId === assetId);
+  if (!t) return { status: 400, body: { error: 'unknown origin asset' } };
+  let raw;
+  try { raw = intents.toBaseUnits(amount, t.decimals); } catch (e) { return { status: 400, body: { error: e.message } }; }
+  const ready = await cached(`ready-${recipient}`, 600_000, () => intents.recipientReady(recipient));
+  if (!ready.ok) return { status: 400, body: { error: ready.reason } };
+  try {
+    const q = await cached(`quote-${assetId}-${raw}`, 20_000, () => intents.quote({ originAsset: assetId, amount: raw, recipient }));
+    return { status: 200, body: { origin: t, recipient, stand_in, dry: true, quoted_at: q.timestamp, quote: q.quote } };
+  } catch (e) {
+    cache.delete(`quote-${assetId}-${raw}`);
+    return { status: 400, body: { error: String(e.message || e).slice(0, 300) } };
+  }
+}
+
 /* SimpleAnalytics, first-party, as every web3wagmi property runs it (same handler as web3wagmi-tx). /proxy.js is SA's script compiled with this host as its beacon base, and /simple/*
    carries the beacons to SA's queue, so blockers that drop third-party analytics hosts see only
    this origin. Reporting under web3wagmi.com is set by data-hostname in index.html. */
@@ -185,6 +216,11 @@ const server = http.createServer(async (req, res) => {
       if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
       const file = id === (await deployment(NET)).vault ? path.join(DIR, 'demo', `agent-${NET}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
       return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: NET, vault: id, moves: [] })));
+    }
+    if (url.pathname === '/api/fund/tokens') return send(res, 200, await fundTokens());
+    if (url.pathname === '/api/fund/quote') {
+      const r = await fundQuote(url.searchParams.get('asset') || '', url.searchParams.get('amount') || '');
+      return send(res, r.status, r.body);
     }
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
     let p = decodeURIComponent(url.pathname);

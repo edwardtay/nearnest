@@ -13,6 +13,7 @@ Live page: https://nearnest.web3wagmi.com
 5. **See a stolen key fail.** The Drill view runs 28 checks with the real keys, each with its transaction. 14 attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a move past the daily limit, a supply past the on-chain risk cap, a supply while paused, a supply into a blocked venue, the deleted agent key, and the risk feeder trying to raise a cap, unpause or unblock. 14 permitted operations go through, including exits while paused or blocked, the feeder deleting the agent key and exiting without it, and the owner restoring everything.
 
 6. **Make your own vault.** In My vault, connect a NEAR testnet wallet and create `<name>.nearnest-factory-mvzmesjc.testnet` in one transaction. The factory deploys the vault, adds the agent's function-call key (no full-access key) and makes you the owner. Fund it with test USDC and NEAR, and the agent runs it under the same rules; the owner buttons withdraw to you, pause, and remove or restore the agent's key.
+7. **Fund from any chain.** In My vault, pick a token you hold on its own chain (ETH on Base, USDC on Solana, USDT on Tron, BTC and others) and an amount, and press Get a live quote. NEAR Intents solvers price the swap through the 1Click API, and you see what the vault would receive in NEAR USDC, the route's cost and the time to settle. Or run `node scripts/fund-intents.mjs base:ETH 0.01`. See [Fund from any chain](#fund-from-any-chain) for why these quotes are dry until the mainnet vault is live.
 
 To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
 
@@ -62,6 +63,12 @@ The full authority table, threats and the drill check behind each are in [`docs/
 | `usdc-run`: USDC pool at 97% utilization | blocks Rhea Lend USDC; exit |
 | `year-later`: 18 April 2027 | the April incident ages out; rNEAR goes to full size, the lending pools stay capped by utilization |
 
+### Fund from any chain
+
+A vault takes deposits in NEAR USDC, but most people hold their money on other chains. [`agent/intents.mjs`](agent/intents.mjs) uses the NEAR Intents 1Click API: the user sends a token to a one-time deposit address on its own chain, solvers fill the swap inside NEAR Intents, and 1Click sends NEAR USDC to the vault with `ft_transfer`. The vault needed no change: it registers for USDC storage when it is created and keeps any token it receives (`ft_on_transfer` returns 0), and the agent finds the new USDC idle on its next round and supplies it under the usual caps. Nobody but the owner can take it out.
+
+NEAR Intents runs on mainnet only and the vaults are on testnet, so the page and the default script make dry quotes: live mainnet prices and routes, with no deposit address. They are routed to `intents.near`, an existing mainnet account registered for USDC, until the mainnet vault exists. 1Click answers a bare HTTP 500 when the recipient account does not exist or has no USDC storage, so the server and script check both on mainnet first and say which one is missing. A real deposit is `node scripts/fund-intents.mjs base:USDC 2 --to <mainnet vault> --live --refund <your Base address>`: it prints the deposit address, follows the swap to SUCCESS or REFUNDED and logs it to `demo/intents-mainnet.json`. You send the funds from your own wallet, and the script holds no key. Refunds go to the origin-chain address you give.
+
 ### Factory
 
 [`factory/src/lib.rs`](factory/src/lib.rs) embeds the vault's wasm. `create_vault(name)` with at least `get_min_deposit` attached (about 4.1 NEAR, almost all of it the vault code's storage) runs one batch on `<name>.<factory>`: create the account, transfer the deposit, deploy the vault, add the agent's function-call key, call `new_preset` with the caller as owner. If the batch fails (a taken name, out of gas) the deposit is credited back and claimed with `claim_refund`; the first visitor vault on testnet failed this way and its refund went through. The factory keeps none of the deposit. On mainnet, NEAR global contracts would let every vault share one copy of the code instead of paying 3.3 NEAR of storage each.
@@ -92,7 +99,7 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
-# policy, planner, scenario and contract tests (27 JS, 31 Rust)
+# policy, planner, scenario and contract tests (31 JS, 31 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -114,6 +121,8 @@ node owner-upgrade.mjs                     # owner deploys new vault code, then 
 node factory-setup.mjs                     # testnet factory plus one visitor vault, end to end
 node run-all.mjs --loop                    # the agent for the demo vault and every factory vault
 node attack.mjs                # the compromised-key drill, writes demo/attack-testnet.json
+node fund-intents.mjs sol:USDC 25            # dry NEAR Intents quote: USDC on Solana -> NEAR USDC
+node fund-intents.mjs base:USDC 2 --to <mainnet vault> --live --refund 0x...   # real deposit
 
 # the page
 cd .. && npm start             # http://localhost:8787
@@ -142,12 +151,13 @@ agent/      venue reads, risk policy, report builder, scan CLI, policy tests
 scripts/    testnet setup, agent run loop, attack drill, inspection helpers
 demo/       public deployment ids and recorded runs (no secrets)
 public/     the web page
-server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /api/agent, /api/drill, /api/scenario)
+server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /api/agent, /api/drill, /api/scenario, /api/fund/*)
 ```
 
 ## Limits
 
 - The vault runs on testnet. A mainnet vault needs about 4 NEAR for contract storage.
+- NEAR Intents is mainnet only, so funding from other chains is quoted live but dry until the mainnet vault exists. 1Click sets minimums on some routes (currently $100 from Tron).
 - One vault serves one owner. Shares for several depositors are out of scope.
 - A Burrow withdrawal settles in a later receipt; if Burrow's transfer back failed and Burrow re-credited the vault, the next `sync_position` (callable by anyone) corrects the books.
 - Policy caps reach the chain on the agent's next run, so a stolen key has the contract's caps until then. The risk feeder holds no funds and can run on its own.

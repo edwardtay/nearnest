@@ -277,3 +277,16 @@ svg use{pointer-events:none}
   .feed li{grid-template-columns:28px minmax(0,1fr)}
   .feed .when{grid-column:2}
 }
+
+/* fund from any chain (NEAR Intents) */
+.fund-sub{margin:0 0 10px;font-size:14px;color:var(--ink2)}
+.fund-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.fund-col{display:flex;flex-direction:column;min-width:0}
+.fund-col .field{margin-top:0}
+#fund-asset{width:min(240px,100%);font-family:var(--font);cursor:pointer}
+#fund-amt{width:min(150px,100%)}
+.fund-out{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:4px 0 12px}
+.fund-out .stat:hover{border-color:var(--border-strong);transform:none}
+.fund-out .stat .s{overflow-wrap:break-word}
+.fund-out .err{grid-column:1/-1;margin:0;padding:10px 12px;border:2px solid var(--bad);border-radius:12px;color:var(--bad);font-size:14px}
+@media (max-width:480px){.fund-col,#fund-asset,#fund-amt{width:100%}.fund-row .btn-cta{width:100%}.fund-out{grid-template-columns:repeat(2,minmax(0,1fr))}.fund-out .stat b{font-size:18px}}

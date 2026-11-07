@@ -325,6 +325,7 @@ async function loadFactory(force) {
 const PREVIEW_AS = location.hostname === 'localhost' ? new URLSearchParams(location.search).get('preview_as') : null;
 
 async function openMine() {
+  loadFund();
   if (PREVIEW_AS) { mine.account = PREVIEW_AS; await loadFactory().catch(() => {}); return renderMine(); }
   try { await loadFactory(); } catch (e) { $('#fac-list').innerHTML = `<li class="loading">Could not read the factory: ${esc(e.message)}</li>`; }
   try { await loadWallet(); } catch (e) { toast('The wallet could not load'); console.error(e); }
@@ -433,6 +434,62 @@ if (new URLSearchParams(location.search).has('transactionHashes') || new URLSear
   history.replaceState(null, '', `${location.pathname}#mine`);
   setTimeout(() => toast('Signed in your wallet'), 300);
 }
+
+// ------------------------------------------------------- fund from any chain
+// Live 1Click quotes (NEAR Intents): a token on its own chain in, NEAR USDC out to the vault.
+
+const fund = { info: null, loading: null };
+const DEFAULT_AMT = { ETH: '0.01', BTC: '0.001', SOL: '0.5', NEAR: '10', USDC: '25', USDT: '25' };
+const TRON_MIN_USD = 100;
+
+function loadFund() {
+  if (!fund.loading) fund.loading = getJSON('/api/fund/tokens').then((info) => {
+    fund.info = info;
+    $('#fund-asset').innerHTML = info.tokens.map((t) => `<option value="${esc(t.assetId)}">${esc(t.symbol)} on ${esc(t.chain)}</option>`).join('');
+    const base = info.tokens.find((t) => t.chain === 'Base' && t.symbol === 'ETH');
+    if (base) $('#fund-asset').value = base.assetId;
+    $('#fund-note').innerHTML = info.stand_in
+      ? `NEAR Intents runs on mainnet only, and this vault is on testnet. Quotes are live mainnet prices, routed to the stand-in account <code>${acct(info.recipient)}</code> until the mainnet vault is live. They are dry: no deposit address is made and nothing can be sent. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>.`
+      : `Quotes route to the mainnet vault <code>${acct(info.recipient)}</code>. They are dry here; a real deposit runs with <code>scripts/fund-intents.mjs --live</code>, which gives a one-time deposit address.`;
+    fundUsd();
+  }).catch((e) => { fund.loading = null; $('#fund-note').textContent = `Could not read the 1Click token list: ${e.message}`; });
+  return fund.loading;
+}
+
+const fundToken = () => fund.info?.tokens.find((t) => t.assetId === $('#fund-asset').value);
+function fundUsd() {
+  const t = fundToken(); const a = Number($('#fund-amt').value);
+  const h = $('#fund-usd'); h.className = 'hint';
+  if (!t) { h.textContent = ''; return; }
+  if (!(a > 0)) { h.textContent = 'Enter an amount above zero.'; h.className = 'hint bad'; return; }
+  h.textContent = `About ${usd(a * t.price)} at ${usd(t.price)} per ${t.symbol}.${t.chain === 'Tron' && a * t.price < TRON_MIN_USD ? ` 1Click needs at least $${TRON_MIN_USD} from Tron.` : ''}`;
+}
+
+async function fundQuote() {
+  const t = fundToken(); if (!t) return;
+  const btn = $('#fund-go'); const out = $('#fund-out');
+  btn.disabled = true; btn.textContent = 'Asking solvers…';
+  try {
+    const r = await fetch(`/api/fund/quote?asset=${encodeURIComponent(t.assetId)}&amount=${encodeURIComponent($('#fund-amt').value.trim())}`, { cache: 'no-store' });
+    const j = await r.json();
+    out.hidden = false;
+    if (!r.ok) { out.innerHTML = `<p class="err">${esc(j.error || `Quote failed (${r.status})`)}</p>`; return; }
+    const q = j.quote;
+    const kept = Number(q.amountOutUsd) / Number(q.amountInUsd);
+    out.innerHTML = `
+      <div class="stat"><span class="k">You send</span><b>${num(q.amountInFormatted, 6)} ${esc(t.symbol)}</b><span class="s">on ${esc(t.chain)}, ${usd(q.amountInUsd)}</span></div>
+      <div class="stat"><span class="k">Vault receives</span><b>${num(q.amountOutFormatted, 2)} USDC</b><span class="s">at least ${num(Number(q.minAmountOut) / 1e6, 2)} after 1% slippage</span></div>
+      <div class="stat"><span class="k">Cost of the route</span><b>${pct(Math.max(0, 1 - kept))}</b><span class="s">${usd(Math.max(0, q.amountInUsd - q.amountOutUsd))} on this amount</span></div>
+      <div class="stat"><span class="k">Time to settle</span><b>${num(q.timeEstimate, 0)} s</b><span class="s">after the deposit confirms on ${esc(t.chain)}</span></div>`;
+  } catch (e) {
+    out.hidden = false; out.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  } finally { btn.disabled = false; btn.textContent = 'Get a live quote'; }
+}
+
+$('#fund-asset').addEventListener('change', () => { const t = fundToken(); if (t) $('#fund-amt').value = DEFAULT_AMT[t.symbol] || '1'; fundUsd(); $('#fund-out').hidden = true; });
+$('#fund-amt').addEventListener('input', fundUsd);
+$('#fund-amt').addEventListener('keydown', (e) => { if (e.key === 'Enter') fundQuote(); });
+$('#fund-go').addEventListener('click', fundQuote);
 
 // ------------------------------------------------------------------ what if
 

@@ -189,6 +189,19 @@
         </div>
       </div>
 
+      <div class="card" id="fund">
+        <div class="card-head"><h3>Fund from any chain</h3><span class="badge">NEAR Intents</span></div>
+        <p class="fund-sub">Pay with a token you already hold, on its own chain. Solvers swap it inside NEAR Intents and the 1Click API sends NEAR USDC straight to the vault. The vault keeps any USDC it receives, and the agent puts it to work on its next round under the same rules.</p>
+        <div class="fund-row">
+          <div class="fund-col"><label class="field" for="fund-asset">Pay with</label><select id="fund-asset" class="inp"><option>Loading…</option></select></div>
+          <div class="fund-col"><label class="field" for="fund-amt">Amount</label><input id="fund-amt" class="inp" inputmode="decimal" autocomplete="off" spellcheck="false" value="0.01"></div>
+          <button class="btn-cta" id="fund-go" type="button">Get a live quote</button>
+        </div>
+        <p class="hint" id="fund-usd"></p>
+        <div class="fund-out" id="fund-out" hidden></div>
+        <p class="foot" id="fund-note"></p>
+      </div>
+
       <div class="card">
         <div class="card-head"><h3>Vaults made by the factory</h3><span class="cool" id="fac-count"></span></div>
         <ul class="vault-list" id="fac-list"><li class="loading">Reading the factory…</li></ul>
