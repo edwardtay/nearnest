@@ -148,6 +148,19 @@ cd .. && npm start             # http://localhost:8787
 
 ## Deployed
 
+**Mainnet** (real funds, small caps: 50 USDC and 0.5 NEAR in total, 20 USDC per move, 6 moves a day):
+
+| Role | Account |
+|---|---|
+| Vault | [`2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e`](https://nearblocks.io/address/2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e) |
+| Owner | `web3wagmi.near` |
+| Risk feeder | `fb10a8ba67ae2563bb36f165bf641c22449488867557e3dac34df82e6a685498` |
+| Setup | [one transaction](https://nearblocks.io/txns/F4AsUkFdDDj4FAEkXfZc9qJXSo4mEwk8AQ2YyJxFeoyb): deploy, `new_preset`, agent key added, setup key deleted |
+
+The vault is an implicit account (its id is the hex of a one-time key) because Meteor Wallet blocks apps from deploying code or adding keys, so a named sub-account could not be set up from a wallet. The owner only sent NEAR to it. The one-time key deployed the same code as the testnet vault (code hash `9MVQzf2KvbZfha31UG3qNqAgem5N6UuNs47bNhqBq8LR`), made `web3wagmi.near` the owner, added the agent's function-call key and deleted itself in the same transaction, so the vault has no full-access key. Checks and links: [`demo/deployment-mainnet.json`](demo/deployment-mainnet.json). Fund from any chain now quotes into this vault.
+
+**Testnet:**
+
 | Role | Account |
 |---|---|
 | Factory | [`nearnest-factory-mvzmesjc.testnet`](https://testnet.nearblocks.io/address/nearnest-factory-mvzmesjc.testnet) |
@@ -174,9 +187,9 @@ server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /ap
 
 ## Limits
 
-- The vault runs on testnet. A mainnet vault needs about 4 NEAR for contract storage.
+- The mainnet vault holds about 3.3 NEAR as contract storage, which stays locked unless a later `update_contract` adds a way to close it.
 - The NEAR AI proposer runs only when the agent is started with `--ai`; the hosted agent's moves so far came from the deterministic planner, except the one marked NEAR AI.
-- NEAR Intents is mainnet only, so funding from other chains is quoted live but dry until the mainnet vault exists. 1Click sets minimums on some routes (currently $100 from Tron).
+- The page's Fund from any chain quotes are dry (no deposit address); a real deposit runs with `scripts/fund-intents.mjs --live`. 1Click sets minimums on some routes (currently $100 from Tron).
 - One vault serves one owner. Shares for several depositors are out of scope.
 - A Burrow withdrawal settles in a later receipt; if Burrow's transfer back failed and Burrow re-credited the vault, the next `sync_position` (callable by anyone) corrects the books.
 - Policy caps reach the chain on the agent's next run, so a stolen key has the contract's caps until then. The risk feeder holds no funds and can run on its own.

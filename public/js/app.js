@@ -486,7 +486,7 @@ function loadFund() {
     if (base) $('#fund-asset').value = base.assetId;
     $('#fund-note').innerHTML = info.stand_in
       ? `NEAR Intents runs on mainnet only, and this vault is on testnet. Quotes are live mainnet prices, routed to the stand-in account <code>${acct(info.recipient)}</code> until the mainnet vault is live. They are dry: no deposit address is made and nothing can be sent. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>.`
-      : `Quotes route to the mainnet vault <code>${acct(info.recipient)}</code>. They are dry here; a real deposit runs with <code>scripts/fund-intents.mjs --live</code>, which gives a one-time deposit address.`;
+      : `Quotes route to the mainnet NEARnest vault <code>${acct(info.recipient)}</code>, owned by <code>web3wagmi.near</code>. They are dry here: no deposit address is made. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>, which gives a one-time deposit address.`;
     fundUsd();
   }).catch((e) => { fund.loading = null; $('#fund-note').textContent = `Could not read the 1Click token list: ${e.message}`; });
   return fund.loading;

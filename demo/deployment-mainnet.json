@@ -1,0 +1,36 @@
+{
+  "network": "mainnet",
+  "vault": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
+  "owner": "web3wagmi.near",
+  "feeder": "fb10a8ba67ae2563bb36f165bf641c22449488867557e3dac34df82e6a685498",
+  "agent_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
+  "code_hash": "9MVQzf2KvbZfha31UG3qNqAgem5N6UuNs47bNhqBq8LR",
+  "checks": {
+    "code_hash_matches_testnet_vault": true,
+    "owner": true,
+    "risk_feeder": true,
+    "agent_key_on_vault": true,
+    "no_full_access_key": true,
+    "venues": true
+  },
+  "setup_txs": {
+    "deploy_init_agent_key_delete_vault_key": "https://nearblocks.io/txns/F4AsUkFdDDj4FAEkXfZc9qJXSo4mEwk8AQ2YyJxFeoyb"
+  },
+  "access_keys": [
+    {
+      "public_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
+      "permission": {
+        "FunctionCall": {
+          "allowance": "250000000000000000000000",
+          "method_names": [
+            "agent_supply",
+            "agent_withdraw",
+            "agent_claim_unstaked"
+          ],
+          "receiver_id": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e"
+        }
+      }
+    }
+  ],
+  "explorer": "https://nearblocks.io/address/2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e"
+}
