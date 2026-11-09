@@ -117,7 +117,7 @@ Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 rustup target add wasm32-unknown-unknown
 ./factory/build.sh             # builds contract/ then factory/
 
-# policy, planner, scenario and contract tests (38 JS, 31 Rust)
+# policy, planner, scenario and contract tests (38 JS, 37 Rust)
 npm test
 
 # live mainnet scan, no keys needed
@@ -193,6 +193,7 @@ server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /ap
 - The NEAR AI proposer runs only when the agent is started with `--ai`; the hosted agent's moves so far came from the deterministic planner, except the one marked NEAR AI.
 - The page's Fund from any chain quotes are dry (no deposit address); a real deposit runs with `scripts/fund-intents.mjs --live`. 1Click sets minimums on some routes (currently $100 from Tron).
 - One vault serves one owner. Shares for several depositors are out of scope.
+- Supplies are held as `pending` until the venue confirms them, and count toward the cap the whole time, so a public `sync_position` that races a supply cannot hide exposure (vault v4, tests `stale_sync_cannot_hide_an_in_flight_supply` and five other callback tests).
 - A Burrow withdrawal settles in a later receipt; if Burrow's transfer back failed and Burrow re-credited the vault, the next `sync_position` (callable by anyone) corrects the books.
 - Policy caps reach the chain on the agent's next run, so a stolen key has the contract's caps until then. The risk feeder holds no funds and can run on its own.
 - The policy reads incidents from DefiLlama's hacks list, so a new exploit reaches the agent when DefiLlama records it. The risk feeder exists to block faster than that.

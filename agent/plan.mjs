@@ -60,7 +60,8 @@ export function planMoves(report, venues, idle, mirror = MIRROR, tag = 'policy',
       steps.push({ ...base, kind: 'tighten', amount: target, prio: 0 });
     }
     if (v.claimable && unb >= floor) steps.push({ ...base, kind: 'claim', amount: unb, prio: 1 });
-    const exposure = pos + unb;
+    // Supplies sent but not yet confirmed by the venue (vault v4) count as exposure too.
+    const exposure = pos + unb + BigInt(v.pending ?? 0);
     // Safety exits ignore the gas-saving minimum: any position in a blocked venue leaves.
     if (pos > want && (pos - want >= floor || (blocked && pos > 0n))) {
       steps.push({ ...base, kind: 'withdraw', amount: min(pos - want, moveCap), prio: 1 });

@@ -105,7 +105,7 @@ const keyList = (await rpc({ request_type: 'view_access_key_list', account_id: s
 const vault = await view(s.vault, 'get_vault');
 const venues = await view(s.vault, 'get_venues');
 const checks = {
-  code_hash_matches_testnet_vault: acct.code_hash === s.preset.code_hash,
+  code_hash_matches_local_build: acct.code_hash === s.preset.code_hash,
   owner: vault?.owner === s.owner,
   risk_feeder: vault?.risk_feeder === s.feeder,
   agent_key_on_vault: keyList.some((k) => k.public_key === s.agentKey.public && k.access_key.permission !== 'FullAccess'),

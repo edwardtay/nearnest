@@ -38,6 +38,12 @@
     <p class="msg" id="msg2"></p>
   </div>
   <div class="card">
+    <h2 style="font-size:17px;margin:0 0 8px">Upgrade: new vault code</h2>
+    <dl id="t3"><dt>Loading</dt><dd>…</dd></dl>
+    <button id="sign3" type="button" disabled>Sign the upgrade</button>
+    <p class="msg" id="msg3"></p>
+  </div>
+  <div class="card">
     <div id="who">Not connected.</div>
     <button id="connect" class="plain" type="button">Connect wallet</button>
     <button id="out" class="plain" type="button" hidden>Disconnect</button>
@@ -61,7 +67,7 @@
     $('#who').innerHTML = a ? `Connected as <code>${esc(a)}</code>` : 'Not connected.';
     $('#out').hidden = !a;
     const right = a === f.owner;
-    $('#sign1').disabled = $('#sign2').disabled = !right;
+    $('#sign1').disabled = $('#sign2').disabled = $('#sign3').disabled = !right;
     $('#msg').className = 'msg' + (a && !right ? ' bad' : '');
     $('#msg').textContent = a && !right ? `Connect ${f.owner}: only the owner can create ${f.vault}.` : '';
   }
@@ -73,6 +79,14 @@
     $('#sign1').disabled = true; $('#msg1').className = 'msg'; $('#msg1').textContent = 'Waiting for your wallet…';
     try { const r = await send(f.vault, [{ transfer: f.fund_yocto }]); ok($('#msg1'), `Sent.${link(r)}`); }
     catch (e) { bad($('#msg1'), `Not sent: ${e.message || e}`); $('#sign1').disabled = false; }
+  };
+  const wasmBytes = new Uint8Array(await (await fetch('/setup/vault.wasm')).arrayBuffer());
+  const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256', wasmBytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  $('#t3').innerHTML = `<dt>To</dt><dd><code>${esc(f.vault)}</code></dd><dt>Call</dt><dd><code>update_contract</code> (owner only) with the new vault code as input, ${wasmBytes.length.toLocaleString()} bytes, sha256 <code>${hex}</code>. Pending supplies count toward the cap, so a venue read racing a supply cannot hide exposure. The same code passed the 28-check drill on testnet.</dd>`;
+  $('#sign3').onclick = async () => {
+    $('#sign3').disabled = true; $('#msg3').className = 'msg'; $('#msg3').textContent = 'Waiting for your wallet…';
+    try { const r = await send(f.vault, [{ method: 'update_contract', args: wasmBytes, tgas: 300 }]); ok($('#msg3'), `Sent.${link(r)} Then run <code>node scripts/mainnet-setup.mjs</code> to check it.`); }
+    catch (e) { bad($('#msg3'), `Not sent: ${e.message || e}`); $('#sign3').disabled = false; }
   };
   $('#sign2').onclick = async () => {
     $('#sign2').disabled = true; $('#msg2').className = 'msg'; $('#msg2').textContent = 'Waiting for your wallet…';

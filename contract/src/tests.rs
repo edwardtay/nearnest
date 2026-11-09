@@ -63,7 +63,8 @@ fn agent_can_supply_within_policy() {
     let mut v = setup();
     as_agent(10_000);
     let _ = v.agent_supply("rhea-usdc".into(), U128(10 * UNIT));
-    assert_eq!(v.get_venues()[0].position.0, 10 * UNIT);
+    assert_eq!(v.get_venues()[0].pending.0, 10 * UNIT);
+    assert_eq!(v.get_venues()[0].position.0, 0);
     assert_eq!(v.get_vault().moves_today, 1);
 }
 
@@ -327,4 +328,103 @@ fn preset_init_sets_venues_caps_and_feeder() {
     let venues = v.get_venues();
     assert_eq!(venues.len(), 1);
     assert_eq!(venues[0].max_move.0, 20 * UNIT);
+}
+
+// ------------------------------------------------- async settlement (callbacks)
+
+fn as_callback(results: Vec<near_sdk::PromiseResult>) {
+    let mut b = VMContextBuilder::new();
+    b.current_account_id(VAULT.parse().unwrap())
+        .predecessor_account_id(VAULT.parse().unwrap())
+        .signer_account_id(VAULT.parse().unwrap())
+        .account_balance(NearToken::from_near(10))
+        .block_timestamp(5_000 * 1_000_000_000);
+    testing_env!(b.build(), near_sdk::test_vm_config(), near_sdk::RuntimeFeesConfig::test(), Default::default(), results);
+}
+fn burrow_answer(usdc_units: u128) -> Vec<u8> {
+    format!(r#"{{"account_id":"v","supplied":[{{"token_id":"{USDC}","balance":"{}","shares":"1"}}],"collateral":[]}}"#, usdc_units * UNIT * 1_000_000_000_000).into_bytes()
+}
+fn ok(bytes: Vec<u8>) -> Vec<near_sdk::PromiseResult> {
+    vec![near_sdk::PromiseResult::Successful(bytes)]
+}
+
+#[test]
+fn venue_takes_the_supply_and_it_becomes_the_position() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    as_callback(ok(br#""20000000""#.to_vec()));
+    assert_eq!(v.on_supply("rhea-usdc".into(), U128(20 * UNIT)).0, 20 * UNIT);
+    let x = &v.get_venues()[0];
+    assert_eq!((x.position.0, x.pending.0), (20 * UNIT, 0));
+}
+
+#[test]
+fn refused_supply_releases_the_reservation() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    as_callback(vec![near_sdk::PromiseResult::Failed]);
+    assert_eq!(v.on_supply("rhea-usdc".into(), U128(20 * UNIT)).0, 0);
+    let x = &v.get_venues()[0];
+    assert_eq!((x.position.0, x.pending.0), (0, 0));
+}
+
+#[test]
+fn partly_used_supply_counts_only_what_the_venue_took() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    as_callback(ok(br#""5000000""#.to_vec()));
+    v.on_supply("rhea-usdc".into(), U128(20 * UNIT));
+    let x = &v.get_venues()[0];
+    assert_eq!((x.position.0, x.pending.0), (5 * UNIT, 0));
+}
+
+/// The race Codex found: a venue read that left before the supply landed arrives after
+/// it and reports the old balance. Before the fix it overwrote the reservation, so three
+/// 20 USDC supplies fit under a 50 USDC cap.
+#[test]
+#[should_panic(expected = "would exceed venue cap")]
+fn stale_sync_cannot_hide_an_in_flight_supply() {
+    let mut v = setup();
+    for (i, t) in [10_000u64, 20_000].iter().enumerate() {
+        as_agent(*t);
+        let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+        as_callback(ok(burrow_answer(0)));
+        assert!(v.on_sync("rhea-usdc".into()));
+        assert_eq!(v.get_venues()[0].pending.0, 20 * UNIT * (i as u128 + 1));
+    }
+    as_agent(30_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+}
+
+#[test]
+fn sync_then_confirm_errs_toward_refusing() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    // The read lands after the venue took the deposit, then the confirmation arrives.
+    as_callback(ok(burrow_answer(20)));
+    v.on_sync("rhea-usdc".into());
+    as_callback(ok(br#""20000000""#.to_vec()));
+    v.on_supply("rhea-usdc".into(), U128(20 * UNIT));
+    let x = &v.get_venues()[0];
+    assert_eq!(x.pending.0, 0);
+    assert!(x.position.0 >= 20 * UNIT, "never under the real holding");
+    // The next read puts the books back on the venue's number.
+    as_callback(ok(burrow_answer(20)));
+    v.on_sync("rhea-usdc".into());
+    assert_eq!(v.get_venues()[0].position.0, 20 * UNIT);
+}
+
+#[test]
+fn failed_venue_read_changes_nothing() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(20 * UNIT));
+    as_callback(vec![near_sdk::PromiseResult::Failed]);
+    assert!(!v.on_sync("rhea-usdc".into()));
+    let x = &v.get_venues()[0];
+    assert_eq!((x.position.0, x.pending.0), (0, 20 * UNIT));
 }

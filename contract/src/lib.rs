@@ -107,6 +107,9 @@ pub struct VenueView {
     pub position: U128,
     /// Liquid-staking exits waiting out the unbonding delay. Still exposed to the venue.
     pub unbonding: U128,
+    /// Supplies sent but not yet confirmed by the venue. Counted toward the cap, and never
+    /// overwritten by a venue read, so a sync racing a supply cannot hide exposure.
+    pub pending: U128,
     pub max_move: U128,
     /// Cap set by the risk feeder (lower only) or owner, if any.
     pub risk_cap: Option<U128>,
@@ -262,7 +265,8 @@ impl Vault {
             env::panic_str(&format!("move {amount} exceeds per-move cap {cap}"));
         }
         let position = self.position(&venue_id);
-        let exposure = position + self.unbonding(&venue_id) + amount;
+        let pending = self.pending(&venue_id);
+        let exposure = position + self.unbonding(&venue_id) + pending + amount;
         let cap = self.effective_cap(&venue_id, &venue);
         if exposure > cap {
             let which = if cap < venue.max_alloc.0 { "risk cap" } else { "venue cap" };
@@ -270,9 +274,10 @@ impl Vault {
         }
         self.check_rate();
 
-        // Reserve the allocation before the async call; the callback releases what
-        // the venue did not take.
-        self.positions.insert(venue_id.clone(), position + amount);
+        // Reserve the allocation as pending before the async call. on_supply moves what
+        // the venue took into the position and releases the rest. A venue read (on_sync)
+        // only replaces the position, so it cannot erase an in-flight supply.
+        raw_set("pend", &venue_id, Some(pending + amount));
         self.record_move();
         emit("supply_started", json!({"venue": venue_id, "amount": U128(amount)}));
 
@@ -377,11 +382,12 @@ impl Vault {
             (Err(_), _) => 0,
         };
         let used = used.min(amount.0);
-        let unused = amount.0 - used;
-        if unused > 0 {
-            let pos = self.position(&venue_id);
-            self.positions.insert(venue_id.clone(), pos.saturating_sub(unused));
-        }
+        let left = self.pending(&venue_id).saturating_sub(amount.0);
+        raw_set("pend", &venue_id, if left > 0 { Some(left) } else { None });
+        // If a venue read already counted this deposit, the position is briefly too high
+        // until the next sync: that errs toward refusing supplies, never toward allowing them.
+        let pos = self.position(&venue_id);
+        self.positions.insert(venue_id.clone(), pos + used);
         emit("supply_done", json!({"venue": venue_id, "requested": amount, "used": U128(used)}));
         U128(used)
     }
@@ -587,6 +593,7 @@ impl Vault {
                 venue: v.clone(),
                 position: U128(self.position(id)),
                 unbonding: U128(self.unbonding(id)),
+                pending: U128(self.pending(id)),
                 max_move: U128(self.max_move.get(&v.token).copied().unwrap_or(0)),
                 risk_cap: raw_get("cap", id).map(U128),
                 effective_cap: U128(self.effective_cap(id, v)),
@@ -631,6 +638,10 @@ impl Vault {
 
     fn unbonding(&self, id: &str) -> u128 {
         raw_get("unb", id).unwrap_or(0)
+    }
+
+    fn pending(&self, id: &str) -> u128 {
+        raw_get("pend", id).unwrap_or(0)
     }
 
     fn effective_cap(&self, id: &str, venue: &Venue) -> u128 {

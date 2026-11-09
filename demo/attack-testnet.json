@@ -4,7 +4,7 @@
   "owner": "nearnest-mvz1l0ba.testnet",
   "feeder": "risk.nearnest-mvz1l0ba.testnet",
   "agent_key": "ed25519:cyDjVHGtPhCnGKtJjzdWaqRQvXySSbnAr7m3vw2akbF",
-  "ran_at": "2026-11-02T18:51:48.423Z",
+  "ran_at": "2026-11-09T03:12:42.255Z",
   "results": [
     {
       "name": "send-native-near",
@@ -45,7 +45,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: unknown venue attacker-pool\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/GNuRQ8WKFY2yjHviKYsCjo2YUDyP5fgqKzLhKPnMommY",
+      "tx": "https://testnet.nearblocks.io/txns/AhzKDX2G7oYqkCLbRbpcaPxDJpBsdyKYUwfN8i3Ei7KC",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/unknown venue attacker-pool/"
@@ -56,7 +56,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: move 25000000 exceeds per-move cap 20000000\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/Bh691yqtLMphDUMUXhtg7EggWPPwhTNEDbUwKPBQFJVx",
+      "tx": "https://testnet.nearblocks.io/txns/CzJvfePQPSpXrWFSHtbBwRKThzpqDWT1SaXurbF9p3FL",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/exceeds per-move cap/"
@@ -67,7 +67,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/DxPCRpSf1547MajRV8ie89LFAPxjFwfVyYpLGFY86Bne",
+      "tx": "https://testnet.nearblocks.io/txns/NvvxLb6hTZRsZhv1fPYHvv6cJYH4v36cxBMvCQkgu2M",
       "actor": "agent",
       "pass": true
     },
@@ -77,7 +77,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/Bo7pXN7DW3zNf1GohaMpoLpZ3QF5ooweFctg6qpSyBFU",
+      "tx": "https://testnet.nearblocks.io/txns/3j2eZYahC1ZuGxMtPeLMmpjxZ2P6rouPHy9GhFmURwrm",
       "actor": "agent",
       "pass": true
     },
@@ -87,7 +87,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: cooldown: 54s left\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/AqTRJg298aEbHwMEjtjvxdmB3E9LBR2sJxtfy8Np791s",
+      "tx": "https://testnet.nearblocks.io/txns/FyxE8gCh7emVgNLM8JnCeEBo1t5ZncYXmJK7tdfnCDxX",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/cooldown/"
@@ -98,7 +98,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/4XTr2eFEyHVtULXkKhYZigMBiYSMX49nyn6HJjkwrcyL",
+      "tx": "https://testnet.nearblocks.io/txns/99jqMPb5fxeSKGrCY6vAc6WQHUehTdRyo38EF5rUy6sG",
       "actor": "owner",
       "pass": true
     },
@@ -107,8 +107,8 @@
       "intent": "Supply 1 USDC past the daily move limit",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: daily move limit 12 reached\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/69hxhCFVvW4VhfcJ86kvxiV4Ktpr7TXDngMzVNcjvziD",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: daily move limit 2 reached\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/2BTCKRUaeowHHxiLN5AVWAFJBakiab1VqCZJTRJgqiSW",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/daily move limit/"
@@ -119,17 +119,17 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/5sGFf4toXzwMGoFCtqLxryfrw8MqVaAEYpmG1ZhGBhts",
+      "tx": "https://testnet.nearblocks.io/txns/Bk5zvzrJevCDgCcm9XSw34gmqTMBSiUKB85YjDeP434J",
       "actor": "owner",
       "pass": true
     },
     {
       "name": "feeder-lowers-cap",
-      "intent": "Risk feeder lowers the risk cap to what the vault holds now (2 USDC)",
+      "intent": "Risk feeder lowers the risk cap to what the vault holds now (9.500062 USDC)",
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/2uQQ5PHm28JAks5Z6prPkd9KaGT9trA6qKurA136FfYz",
+      "tx": "https://testnet.nearblocks.io/txns/J6LRUDGfXqEKu52rP9HD7ZnzWzG2ebEbuyeTuXZShXmF",
       "actor": "feeder",
       "pass": true
     },
@@ -138,8 +138,8 @@
       "intent": "Supply 1 USDC more, past the risk cap",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: allocation 3000000 would exceed risk cap 2000000\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/5v42He57uMJxgCFXLEr7JTSGgVwNUWKfjXSN61dPEL9H",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: allocation 10500062 would exceed risk cap 9500062\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/EDTNZ73vKLqqtExQXpFYcLoB4dogoAx2B8nKuySCcYGR",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/would exceed risk cap/"
@@ -149,8 +149,8 @@
       "intent": "Risk feeder tries to raise the risk cap to 50 USDC",
       "expect": "rejected",
       "outcome": "rejected",
-      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: risk feeder can only lower the cap (now 2000000)\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/6KoQXG6rTL6NesNBdQ8w54kQrF9fU8zhFZJcosS16mfu",
+      "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: risk feeder can only lower the cap (now 9500062)\"}}}}",
+      "tx": "https://testnet.nearblocks.io/txns/6wrbXmbvFWw6QhK84UZturbVoYnPjYH33CDJAQT9Rhdj",
       "actor": "feeder",
       "pass": true,
       "expect_reason": "/can only lower the cap/"
@@ -161,7 +161,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/88z34peTdqrWVcf1HwNe431JKTgq1aKrvQfrya3BNu79",
+      "tx": "https://testnet.nearblocks.io/txns/DYyhyEBEtktydnWCB37HKfSz7dvVF1knT17Q8UnX7Eo7",
       "actor": "feeder",
       "pass": true
     },
@@ -171,7 +171,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: paused\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/4mAstnjm3gBYDS8AmUeEwAGK8EfpgY5t9tjuAWbiRG91",
+      "tx": "https://testnet.nearblocks.io/txns/FCd6BGNX3NPXssZokGVb2ieEfBAU8q2D87t9UjjfqYda",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/paused/"
@@ -182,7 +182,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/4ACQMLpSZXpGv4UYcBxDuWfDiNJj4cyta8oeyHRqwtyd",
+      "tx": "https://testnet.nearblocks.io/txns/TBu4WrV1LTERvbGEzvUZfftjCp6FmtuvkCVvP3QCpTZ",
       "actor": "agent",
       "pass": true
     },
@@ -192,7 +192,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: owner only\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/DbFdhQrRQRpjVyzVXxVZ3M2AhUpbxqoei1PHi98iryZu",
+      "tx": "https://testnet.nearblocks.io/txns/7GymxksJ3smwkYMTPfV5qSncNWur3S9CiMQ2hNEKgSn1",
       "actor": "feeder",
       "pass": true,
       "expect_reason": "/owner only/"
@@ -203,7 +203,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/7sS3JvS31AXUxbzh9PPDrAY4KmX9t5HBdUFGyQ6jfi6D",
+      "tx": "https://testnet.nearblocks.io/txns/7bc7sT9gdh8TtmZ9vPuN6jC2vTLooMnwXo9LTo3QhUPM",
       "actor": "owner",
       "pass": true
     },
@@ -213,7 +213,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/EMKrojd1Xsi4WSFphC8RL5jJVsWsM6AbHEq4oeKsZZgt",
+      "tx": "https://testnet.nearblocks.io/txns/EBtY1ubLv9dJvokXHF694HZn2DstRSTGM61C7MQCVjb2",
       "actor": "feeder",
       "pass": true
     },
@@ -223,7 +223,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: venue blocked: drill: venue exploited via spot price manipulation\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/9NheGUbArmYB6PGsdMBfMhjNTxcxVWeYtRDXGV1LnpUg",
+      "tx": "https://testnet.nearblocks.io/txns/5WAJYu89UGB6p75FFPDiyBZCHNewDZC4479hBXasm93i",
       "actor": "agent",
       "pass": true,
       "expect_reason": "/venue blocked/"
@@ -234,7 +234,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/8G21evf9XkzzefrmsGCSyXLcLnrd4JovBYfN2y8yfcec",
+      "tx": "https://testnet.nearblocks.io/txns/998BrrUjnAK9rgpvJW4GvZMaLPtevoR4vQAs8XDH8JwU",
       "actor": "feeder",
       "pass": true
     },
@@ -255,7 +255,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/7wT3965TqaJRv73iE4hNjpREJmf6ehjVmBZWFLGRYQcP",
+      "tx": "https://testnet.nearblocks.io/txns/9UWnW1fF4VKWj9Uiyo48SHiJjciwn1wjaRqknYJnUDaR",
       "actor": "feeder",
       "pass": true
     },
@@ -265,7 +265,7 @@
       "expect": "rejected",
       "outcome": "rejected",
       "reason": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: owner only\"}}}}",
-      "tx": "https://testnet.nearblocks.io/txns/A6yBFtw5z7FvFc65ehKrZjvUiKXn4XoJ4xsKfEbv5smi",
+      "tx": "https://testnet.nearblocks.io/txns/igCr1x25DnNGyV3UUrYm7wxXHXP1NYZ3HB6xkZG2j5Q",
       "actor": "feeder",
       "pass": true,
       "expect_reason": "/owner only/"
@@ -276,7 +276,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/G1o5RfnX2bnMbaRnPCsJDip6S9HRdY1peZPZ1PUYZk7Y",
+      "tx": "https://testnet.nearblocks.io/txns/JDdziaZ1Qg9difh64UUWQNDj4AbC1inQf4vww6cw1TrW",
       "actor": "owner",
       "pass": true
     },
@@ -286,7 +286,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/EPMVynixT2R8zMJPQWPMpRcpnnVG1vR7ERZYzzUr3nMK",
+      "tx": "https://testnet.nearblocks.io/txns/7cXU4xtaBtb9qoJj772it3J48xxEsinAyFv1AfiUbnkK",
       "actor": "owner",
       "pass": true
     },
@@ -296,7 +296,7 @@
       "expect": "executed",
       "outcome": "executed",
       "reason": null,
-      "tx": "https://testnet.nearblocks.io/txns/6THzT9Spok9cLTP1G2tjNut8bVjRpcx99hq2G11TMuwv",
+      "tx": "https://testnet.nearblocks.io/txns/KTYvdmpLUnXTEnWRwNMDHCWJ3JWshy871rXv67Sdug8",
       "actor": "owner",
       "pass": true
     }
