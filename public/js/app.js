@@ -5,7 +5,8 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Account ids break only after a dot, never inside a word.
-const acct = (s) => esc(s).split('.').map((p) => `<span class="nb">${p}</span>`).join('.<wbr>');
+// Implicit accounts (64 hex characters) have no dots, so a part that long may wrap anywhere.
+const acct = (s) => esc(s).split('.').map((p) => (p.length > 32 ? `<span class="hexid">${p}</span>` : `<span class="nb">${p}</span>`)).join('.<wbr>');
 const pct = (x) => `${(x * 100).toFixed(2)}%`;
 const num = (x, d = 2) => Number(x).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const usd = (x) => `$${Number(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -17,6 +18,8 @@ const LOGO = {
   LiNEAR: '/img/linear.png',
   'contract.1638481328.burrow.testnet': '/img/rhea.png',
   'linear-protocol.testnet': '/img/linear.png',
+  'contract.main.burrow.near': '/img/rhea.png',
+  'linear-protocol.near': '/img/linear.png',
 };
 const VENUE = {
   'burrow-usdc': { name: 'Burrow USDC', logo: '/img/rhea.png', color: '#0ea5e9', token: 'usdc', sym: 'USDC', price: 'coingecko:usd-coin' },
@@ -35,7 +38,8 @@ function units(raw, token) {
   return num(Number(BigInt(raw) * 1000n / 10n ** BigInt(d)) / 1000, 3);
 }
 const toNum = (raw, token) => Number(BigInt(raw ?? 0) * 1_000_000n / 10n ** BigInt(token === 'near' ? 24 : 6)) / 1e6;
-const sym = (t) => (t === 'near' ? 'NEAR' : t.startsWith('usdc') ? 'USDC' : t.startsWith('usdt') ? 'USDt' : t);
+const MAINNET_USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
+const sym = (t) => (t === 'near' ? 'NEAR' : t === MAINNET_USDC || t.startsWith('usdc') ? 'USDC' : t.startsWith('usdt') ? 'USDt' : t);
 function ago(iso) {
   const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000));
   if (s < 60) return `${s}s ago`;
@@ -48,6 +52,14 @@ function toast(msg) {
   t.textContent = msg; t.hidden = false;
   clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 1800);
 }
+
+// Which vault the Overview, Vault, Agent and What if views show. Mainnet by default; the
+// testnet demo vault holds test tokens with no value and runs the drill and the factory.
+const NETS = ['mainnet', 'testnet'];
+let NETWORK = (() => { try { const q = new URLSearchParams(location.search).get('net'); return NETS.includes(q) ? q : localStorage.getItem('nearnest-net') || 'mainnet'; } catch { return 'mainnet'; } })();
+if (!NETS.includes(NETWORK)) NETWORK = 'mainnet';
+const EXPLORER = () => (NETWORK === 'mainnet' ? 'https://nearblocks.io' : 'https://testnet.nearblocks.io');
+const withNet = (url, net = NETWORK) => `${url}${url.includes('?') ? '&' : '?'}net=${net}`;
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: 'no-store' });
@@ -86,7 +98,8 @@ function renderOverview() {
   const total = rows.reduce((a, r) => a + r.usd, 0);
   const earn = rows.reduce((a, r) => a + r.usd * r.apr, 0);
   $('#pos-usd').textContent = usd(total);
-  $('#pos-s').textContent = total ? `Earning ${pct(earn / total)} blended, about ${usd(earn)} a year at today's rates` : 'Nothing supplied yet';
+  const testNote = NETWORK === 'testnet' ? ' Testnet tokens, no real value.' : '';
+  $('#pos-s').textContent = (total ? `Earning ${pct(earn / total)} blended, about ${usd(earn)} a year at today's rates.` : 'Nothing supplied yet.') + testNote;
   $('#pos-bar').innerHTML = rows.map((r) => `<i style="width:${total ? (r.usd / total) * 100 : 0}%;background:${r.v.color}"></i>`).join('');
   $('#pos-legend').innerHTML = rows.map((r) => `<li><span class="sw" style="background:${r.v.color}"></span>${ent(r.v.name, r.v.logo)}
     <span class="amt">${num(r.amount, 3)} ${r.v.sym}</span><span class="apr">${pct(r.apr)}</span></li>`).join('');
@@ -151,7 +164,7 @@ function renderFeed() {
     const v = VENUE[m.venue] || { name: m.venue, sym: '' };
     items.push(feedItem(m, v));
   }
-  const d = state.drill;
+  const d = NETWORK === 'testnet' ? state.drill : null;
   if (d) {
     const stopped = d.results.filter((r) => r.expect === 'rejected' && r.pass).length;
     const attacks = d.results.filter((r) => r.expect === 'rejected').length;
@@ -291,7 +304,9 @@ function renderMoves(a) {
   });
   $('#moves-tbl tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="loading">No moves yet.</td></tr>';
   const lr = a.last_run ? `Last agent run ${new Date(a.last_run.at).toISOString().slice(0, 16).replace('T', ' ')} UTC: ${a.last_run.result}. ` : '';
-  $('#moves-foot').textContent = `${lr}The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Every round reads mainnet risk again before the agent signs.`;
+  $('#moves-foot').textContent = NETWORK === 'mainnet'
+    ? `${lr}The mainnet vault holds real funds. Every round reads mainnet risk again before the agent signs.`
+    : `${lr}The testnet vault takes its judgement from the matching mainnet venue: Burrow testnet follows Rhea Lend USDC, LiNEAR testnet follows LiNEAR. Every round reads mainnet risk again before the agent signs.`;
 }
 
 // ----------------------------------------------------------------- my vault
@@ -353,7 +368,7 @@ async function renderMine() {
   $('#mine-create').hidden = true; $('#mine-vault').hidden = false;
   $('#mine-who-2').innerHTML = whoHTML(a);
   mine.vault = own[own.length - 1].id;
-  const [snap, plan] = await Promise.all([getJSON(`/api/vault?vault=${encodeURIComponent(mine.vault)}`), getJSON(`/api/plan?vault=${encodeURIComponent(mine.vault)}`)]);
+  const [snap, plan] = await Promise.all([getJSON(withNet(`/api/vault?vault=${encodeURIComponent(mine.vault)}`, 'testnet')), getJSON(withNet(`/api/plan?vault=${encodeURIComponent(mine.vault)}`, 'testnet'))]);
   mine.snap = snap;
   const keys = snap.access_keys;
   const full = keys.filter((k) => k.access_key.permission === 'FullAccess').length;
@@ -546,7 +561,7 @@ async function openWhatIf(arg) {
   if (hit && Date.now() - hit.t < 60_000) return renderWhatIf(hit.v);
   $('#scen-story').textContent = 'Running the policy…';
   try {
-    const r = await getJSON(`/api/scenario?id=${encodeURIComponent(scenId)}`);
+    const r = await getJSON(withNet(`/api/scenario?id=${encodeURIComponent(scenId)}`));
     scenCache.set(scenId, { t: Date.now(), v: r });
     if (r.id === scenId) renderWhatIf(r);
   } catch (e) { $('#scen-story').textContent = `Could not run the scenario: ${e.message}`; }
@@ -655,7 +670,7 @@ async function loadScan() {
 async function refresh() {
   const btn = $('#refresh');
   btn.classList.add('spin');
-  const [vault, plan, agent] = await Promise.allSettled([getJSON('/api/vault'), getJSON('/api/plan'), getJSON('/api/agent')]);
+  const [vault, plan, agent] = await Promise.allSettled([getJSON(withNet('/api/vault')), getJSON(withNet('/api/plan')), getJSON(withNet('/api/agent'))]);
   getJSON('/api/ai').then(renderAI).catch(() => { $('#ai-list').innerHTML = '<li class="loading">Could not read the proposals.</li>'; });
   btn.classList.remove('spin');
   if (vault.status === 'fulfilled') renderVault(state.vault = vault.value);
@@ -671,6 +686,21 @@ $('#refresh').addEventListener('click', refresh);
 $('#copy-cmd').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText('node scripts/run-agent.mjs'); toast('Command copied'); } catch { toast('Copy failed'); }
 });
+
+function setNetwork(n) {
+  NETWORK = n;
+  try { localStorage.setItem('nearnest-net', n); } catch {}
+  const u = new URL(location.href); u.searchParams.set('net', n); history.replaceState(null, '', u);
+  document.querySelectorAll('#net-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.net === n)));
+  document.body.dataset.net = n;
+  state.plan = state.vault = state.agent = null;
+  scenCache?.clear?.();
+  refresh();
+  renderFeed();
+}
+document.querySelectorAll('#net-switch button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.net !== NETWORK) setNetwork(b.dataset.net); }));
+document.querySelectorAll('#net-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.net === NETWORK)));
+document.body.dataset.net = NETWORK;
 
 route();
 if (!state.scenarios) getJSON('/api/scenarios').then((x) => { state.scenarios ??= x; renderFeed(); if (state.agent) renderMoves(state.agent); }).catch(() => {});

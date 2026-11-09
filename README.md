@@ -6,6 +6,8 @@ Live page: https://nearnest.web3wagmi.com
 
 ## Try it in two minutes
 
+The page opens on the **mainnet vault** (real USDC and NEAR, owned by `web3wagmi.near`). The header switch shows the **testnet** demo vault, which runs the drill and the factory with test tokens.
+
 1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most (10.7% on 9 November 2026), and the agent caps it at 50% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 (about $11.2M since returned or frozen) and its pool was 86.8% lent out that day.
 2. **See the vault on chain.** Open [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) and its access keys. It has one key, a function-call key limited to `agent_supply`, `agent_withdraw` and `agent_claim_unstaked`. There is no full-access key.
 3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction, each with the policy reasons recorded at the time.

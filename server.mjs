@@ -42,6 +42,9 @@ async function query(net, params) {
 }
 const view = async (net, c, m, a = {}) => JSON.parse(Buffer.from((await query(net, { request_type: 'call_function', account_id: c, method_name: m, args_base64: Buffer.from(JSON.stringify(a)).toString('base64') })).result).toString());
 
+/** ?net=mainnet|testnet. Mainnet is the default once a mainnet vault is deployed. */
+const MAINNET_LIVE = await stat(path.join(DIR, 'demo', 'deployment-mainnet.json')).then(() => true, () => false);
+const netOf = (url) => (['mainnet', 'testnet'].includes(url.searchParams.get('net')) ? url.searchParams.get('net') : MAINNET_LIVE ? 'mainnet' : NET);
 const deployment = async (net) => JSON.parse(await readFile(path.join(DIR, 'demo', `deployment-${net}.json`), 'utf8'));
 
 /** The demo vault, or a vault made by the factory (`<name>.<factory>`). Anything else is refused. */
@@ -195,14 +198,16 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/scan') return send(res, 200, await scan());
     if (url.pathname === '/api/scenarios') return send(res, 200, SCENARIOS.map(scenarioMeta));
     if (url.pathname === '/api/scenario') {
-      const r = await whatIf(NET, url.searchParams.get('id'), (await deployment(NET)).vault);
+      const net = netOf(url);
+      const r = await whatIf(net, url.searchParams.get('id'), (await deployment(net)).vault);
       return r ? send(res, 200, r) : send(res, 404, { error: 'unknown scenario', ids: SCENARIOS.map((x) => x.id) });
     }
     if (url.pathname === '/api/vault' || url.pathname === '/api/plan') {
-      const id = await vaultId(NET, url.searchParams.get('vault'));
+      const net = netOf(url);
+      const id = await vaultId(net, url.searchParams.get('vault'));
       if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
-      if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(NET, id));
-      return send(res, 200, await cached(`vault-${NET}-${id}`, 15_000, () => vaultSnapshot(NET, id)));
+      if (url.pathname === '/api/plan') return send(res, 200, await nextPlan(net, id));
+      return send(res, 200, await cached(`vault-${net}-${id}`, 15_000, () => vaultSnapshot(net, id)));
     }
     if (url.pathname === '/api/name') {
       const dep = await deployment(NET);
@@ -214,10 +219,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/factory') return send(res, 200, await cached(`factory-${NET}`, 15_000, () => factoryInfo(NET)));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
     if (url.pathname === '/api/agent') {
-      const id = await vaultId(NET, url.searchParams.get('vault'));
+      const net = netOf(url);
+      const id = await vaultId(net, url.searchParams.get('vault'));
       if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
-      const file = id === (await deployment(NET)).vault ? path.join(DIR, 'demo', `agent-${NET}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
-      return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: NET, vault: id, moves: [] })));
+      const file = id === (await deployment(net)).vault ? path.join(DIR, 'demo', `agent-${net}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
+      return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: net, vault: id, moves: [] })));
     }
     // Mainnet setup signing page: only with NEARNEST_SETUP=1 and only on localhost. Never in production.
     if (url.pathname.startsWith('/setup/')) {

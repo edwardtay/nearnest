@@ -79,7 +79,11 @@
       <span><h1>NEARnest</h1><span class="app-tag">Policy-bound yield agent</span></span>
     </a>
     <div class="app-status">
-      <span class="badge"><img src="/img/near.png" alt="" width="16" height="16">Vault on testnet</span>
+      <div class="seg" id="net-switch" role="group" aria-label="Which vault to show">
+        <img src="/img/near.png" alt="" width="16" height="16">
+        <button type="button" data-net="mainnet" aria-pressed="true">Mainnet vault</button>
+        <button type="button" data-net="testnet" aria-pressed="false">Testnet</button>
+      </div>
       <span class="badge">Rates from mainnet</span>
       <span class="live" id="live"><i aria-hidden="true"></i><span id="live-t">Connecting</span></span>
       <button class="btn-icon" id="refresh" type="button" aria-label="Refresh now"><svg><use href="#i-refresh"/></svg></button>
@@ -338,7 +342,7 @@
         <dt>Is the yield real?</dt>
         <dd>Lending rates come from the Rhea Lend contract and are paid by borrowers; the reward farms are empty. Staking rates come from the change in the LiNEAR and rNEAR share price over the last 30 days.</dd>
         <dt>Which network is the vault on?</dt>
-        <dd>The vault, the agent moves and the drill run on NEAR testnet against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR. The yield table reads mainnet, and the agent sizes its testnet moves from those mainnet judgements.</dd>
+        <dd>Both. The page opens on the mainnet vault, owned by <code>web3wagmi.near</code>, which holds real USDC and NEAR in Rhea Lend and LiNEAR under small caps. Switch to Testnet in the header for the demo vault, the 28-check drill and the factory; they run against the testnet deployments of Burrow (the code Rhea Lend runs) and LiNEAR, with test tokens of no value. The yield table always reads mainnet, and the testnet agent sizes its moves from those mainnet judgements.</dd>
         <dt>Is the code open?</dt>
         <dd>Yes, MIT licensed: the Rust vault contract, the agent and policy, and the drill.</dd>
       </dl>
