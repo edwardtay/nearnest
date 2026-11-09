@@ -2,10 +2,10 @@
   "network": "mainnet",
   "vault": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
   "agent_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
-  "updated_at": "2026-11-09T03:03:01.155Z",
+  "updated_at": "2026-11-09T03:18:54.239Z",
   "last_run": {
-    "at": "2026-11-09T03:03:01.155Z",
-    "result": "nothing to do: waiting for idle funds",
+    "at": "2026-11-09T03:18:54.239Z",
+    "result": "made 1 move(s)",
     "scenario": null
   },
   "mirror": {
@@ -49,6 +49,26 @@
       "ok": true,
       "reason": null,
       "tx": "https://nearblocks.io/txns/C6ZBVvRpmnHUdoxvCCUg9jXeAxVkFRrQFNKiB69KAvwg"
+    },
+    {
+      "at": "2026-11-09T03:18:54.238Z",
+      "scenario": null,
+      "source": "NEAR AI z-ai/glm-5.3",
+      "kind": "supply",
+      "venue": "burrow-usdc",
+      "mirrors": "rhea-usdc",
+      "verdict": "cap",
+      "apr": 0.10687847077557736,
+      "reasons": [
+        "Rhea Lend lost $18.4M on 2026-04-16 (Spot Price Manipulation), 207 days ago; $11.2M returned or frozen",
+        "utilization 86.8%: only 1,665,092 USDC can leave now"
+      ],
+      "amount": "20000000",
+      "target": "25000000",
+      "signer": "agent",
+      "ok": true,
+      "reason": null,
+      "tx": "https://nearblocks.io/txns/FWh348Q4HrVBqHPZ3tS2HaboCCZ7LAwXHEDgmxBTMBpS"
     }
   ]
 }
