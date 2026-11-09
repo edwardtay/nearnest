@@ -321,25 +321,44 @@ async function loadWallet() {
     const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/wallet-modal.css'; document.head.append(l);
   }
   const w = await import('/js/wallet.js');
-  mine.account = await w.init('testnet');
+  mine.account = await w.init(NETWORK);
   w.onChange((a) => { mine.account = a; renderMine(); });
   mine.w = w;
   return w;
 }
 
 async function loadFactory(force) {
-  if (!mine.factory || force) mine.factory = await getJSON('/api/factory');
+  if (!mine.factory || force) mine.factory = await getJSON(withNet('/api/factory'));
   document.querySelectorAll('.factory-id').forEach((el) => { el.innerHTML = acct(mine.factory.factory); });
   const vs = mine.factory.vaults;
   $('#fac-count').textContent = `${vs.length} so far`;
   $('#fac-list').innerHTML = vs.map((v) => `<li><span class="mono">${acct(v.id)}<small class="acct"> owned by ${acct(v.owner)}</small></span>
-    <a href="https://testnet.nearblocks.io/address/${esc(v.id)}">Explorer</a></li>`).join('') || '<li class="loading">None yet. Be the first.</li>';
+    <a href="${EXPLORER()}/address/${esc(v.id)}">Explorer</a></li>`).join('') || '<li class="loading">None yet. Be the first.</li>';
 }
 
 // Local preview of the signed-in screens (render only, nothing can be signed): localhost only.
 const PREVIEW_AS = location.hostname === 'localhost' ? new URLSearchParams(location.search).get('preview_as') : null;
 
+const MINE_TEXT = {
+  testnet: { sub: 'Create your own NEARnest vault on testnet. You own it. The agent gets one function-call key on it and nothing more, and every rule on this page applies to your money too.',
+    btn: 'Connect a testnet wallet',
+    steps: `<li><b>Connect a testnet wallet.</b> No account yet? Create one in <a href="https://wallet.meteorwallet.app">Meteor Wallet</a> and switch it to testnet; new testnet accounts come with test NEAR.</li>
+      <li><b>Create your vault.</b> One transaction to the factory makes <code>&lt;name&gt;.<span class="factory-id">factory</span></code>, deploys the vault, adds the agent's key and makes you the owner.</li>
+      <li><b>Fund it</b> with test USDC from the public faucet token, and NEAR to stake.</li>
+      <li><b>Watch the agent work</b> within your vault's rules, and use the owner buttons any time.</li>` },
+  mainnet: { sub: 'Create your own NEARnest vault on mainnet with real funds. You own it. The agent gets one function-call key on it and nothing more. Small caps: 50 USDC and 0.5 NEAR in total.',
+    btn: 'Connect a NEAR wallet',
+    steps: `<li><b>Connect a NEAR wallet</b>, such as <a href="https://wallet.meteorwallet.app">Meteor Wallet</a>.</li>
+      <li><b>Create your vault.</b> One transaction to <code>nearnest.near</code> makes <code>&lt;name&gt;.nearnest.near</code> with you as owner. About 4.2 NEAR goes into the vault, almost all of it the code's storage; <b>Close</b> returns it.</li>
+      <li><b>Fund it</b> from any chain below, or send NEAR to the vault.</li>
+      <li><b>The agent runs every 30 minutes</b> within your vault's rules. Exit, withdraw, pause, remove the agent key or close at any time.</li>` },
+};
+
 async function openMine() {
+  const tx = MINE_TEXT[NETWORK];
+  $('#h-mine').nextElementSibling.textContent = tx.sub;
+  $('#mine-signin').textContent = tx.btn;
+  $('#mine-connect .steps').innerHTML = tx.steps;
   loadFund();
   if (PREVIEW_AS) { mine.account = PREVIEW_AS; await loadFactory().catch(() => {}); return renderMine(); }
   try { await loadFactory(); } catch (e) { $('#fac-list').innerHTML = `<li class="loading">Could not read the factory: ${esc(e.message)}</li>`; }
@@ -355,6 +374,13 @@ async function renderMine() {
   const a = mine.account;
   $('#mine-connect').hidden = !!a;
   if (!a || !mine.factory) { $('#mine-create').hidden = true; $('#mine-vault').hidden = true; return; }
+  if (!mine.factory.factory) {
+    $('#mine-create').hidden = false; $('#mine-vault').hidden = true;
+    $('#mine-who-1').innerHTML = whoHTML(a);
+    $('#mine-create-btn').disabled = true;
+    $('#mine-create-btn').textContent = 'The mainnet factory is not live yet';
+    return;
+  }
   const own = mine.factory.vaults.filter((v) => v.owner === a);
   if (!own.length) {
     $('#mine-create').hidden = false; $('#mine-vault').hidden = true;
@@ -368,13 +394,16 @@ async function renderMine() {
   $('#mine-create').hidden = true; $('#mine-vault').hidden = false;
   $('#mine-who-2').innerHTML = whoHTML(a);
   mine.vault = own[own.length - 1].id;
-  const [snap, plan] = await Promise.all([getJSON(withNet(`/api/vault?vault=${encodeURIComponent(mine.vault)}`, 'testnet')), getJSON(withNet(`/api/plan?vault=${encodeURIComponent(mine.vault)}`, 'testnet'))]);
+  const [snap, plan] = await Promise.all([getJSON(withNet(`/api/vault?vault=${encodeURIComponent(mine.vault)}`)), getJSON(withNet(`/api/plan?vault=${encodeURIComponent(mine.vault)}`))]);
+  if (NETWORK === 'mainnet' && fund.target !== mine.vault) { fund.target = mine.vault; loadFund(true); }
   mine.snap = snap;
   const keys = snap.access_keys;
   const full = keys.filter((k) => k.access_key.permission === 'FullAccess').length;
   const agentKey = keys.some((k) => k.public_key === snap.vault.agent_key);
-  $('#mine-title').innerHTML = `<a href="https://testnet.nearblocks.io/address/${esc(mine.vault)}">${acct(mine.vault)}</a>`;
-  const idleUsdc = BigInt(snap.balances[USDC_T] ?? 0);
+  $('#mine-title').innerHTML = `<a href="${EXPLORER()}/address/${esc(mine.vault)}">${acct(mine.vault)}</a>`;
+  const usdcT = NETWORK === 'mainnet' ? MAINNET_USDC : USDC_T;
+  mine.usdc = usdcT;
+  const idleUsdc = BigInt(snap.balances[usdcT] ?? 0);
   $('#mine-sub').innerHTML = `${full ? `<b>${full} full-access key.</b>` : 'No full-access key.'} ${agentKey ? 'The agent key is on the vault.' : '<b>The agent key is removed.</b>'}
     ${snap.vault.paused ? '<b>Paused.</b>' : ''} Idle in the vault: ${units(idleUsdc, 'usdc')} USDC and ${units(snap.native_yocto, 'near')} NEAR (most of the NEAR pays for the vault's code storage).`;
   $('#mine-tbl tbody').innerHTML = snap.venues.map((x) => {
@@ -385,13 +414,20 @@ async function renderMine() {
       <td class="n">${units(x.max_move, x.venue.token)}</td></tr>`;
   }).join('');
   $('#mine-plan').innerHTML = planHTML(plan.steps);
+  const empty = snap.venues.every((x) => BigInt(x.position) === 0n && BigInt(x.pending ?? 0) === 0n && BigInt(x.unbonding ?? 0) === 0n);
+  const spare = BigInt(snap.native_yocto) - BigInt(snap.storage_usage) * 10n ** 19n - 5n * 10n ** 23n;
   const acts = [
-    { id: 'mint', t: 'Get 50 test USDC', s: 'Public faucet token, minted into the vault', ok: true },
-    { id: 'near', t: 'Send 1 NEAR', s: 'For the agent to stake in LiNEAR', ok: true },
+    ...(NETWORK === 'testnet' ? [{ id: 'mint', t: 'Get 50 test USDC', s: 'Public faucet token, minted into the vault', ok: true }]
+      : [{ id: 'fund', t: 'Deposit from any chain', s: 'USDC, ETH, SOL, BTC and more, through NEAR Intents', ok: true }]),
+    { id: 'near', t: `Send ${NETWORK === 'mainnet' ? '0.5' : '1'} NEAR`, s: 'For the agent to stake in LiNEAR', ok: true },
+    ...snap.venues.filter((x) => BigInt(x.position) > 0n).map((x) => ({ id: `exit:${x.id}`, t: `Exit ${VENUE[x.id]?.name || x.id}`, s: x.venue.kind === 'LiquidStake' ? 'Unstake; LiNEAR takes 2 to 3 days to release' : 'Withdraw it all back into the vault', ok: true })),
+    ...snap.venues.filter((x) => BigInt(x.unbonding ?? 0) > 0n).map((x) => ({ id: `claim:${x.id}`, t: `Claim unstaked NEAR`, s: x.claimable ? 'Ready to claim' : 'Still unbonding', ok: !!x.claimable })),
     { id: 'withdraw', t: `Withdraw ${units(idleUsdc, 'usdc')} USDC to me`, s: 'owner_withdraw: idle USDC to your account', ok: idleUsdc > 0n },
     snap.vault.paused ? { id: 'unpause', t: 'Unpause', s: 'Supply moves resume', ok: true } : { id: 'pause', t: 'Pause', s: 'Stops supply; exits still work', ok: true, warn: true },
     agentKey ? { id: 'rmkey', t: 'Remove the agent key', s: 'The agent can no longer sign for this vault', ok: true, warn: true } : { id: 'addkey', t: 'Restore the agent key', s: 'Function-call key, 0.5 NEAR gas allowance', ok: true },
     ...snap.venues.filter((x) => x.venue.blocked_reason).map((x) => ({ id: `unblock:${x.id}`, t: `Unblock ${VENUE[x.id]?.name || x.id}`, s: 'Only the owner can reopen a venue', ok: true })),
+    { id: 'withdrawnear', t: `Withdraw ${units(spare > 0n ? spare : 0n, 'near')} NEAR to me`, s: 'Idle NEAR above storage and the reserve', ok: spare > 10n ** 22n },
+    { id: 'close', t: 'Close the vault', s: empty && idleUsdc === 0n ? 'Deletes it and returns all its NEAR to you' : 'Exit every venue and withdraw USDC first', ok: empty && idleUsdc === 0n, warn: true },
   ];
   $('#mine-acts').innerHTML = acts.map((b) => `<button type="button" data-act="${esc(b.id)}" class="${b.warn ? 'warn' : ''}" ${b.ok ? '' : 'disabled'}>${esc(b.t)}<small>${esc(b.s)}</small></button>`).join('');
 }
@@ -402,7 +438,7 @@ function checkName() {
   const n = $('#mine-name').value.trim().toLowerCase();
   const hint = $('#mine-name-hint');
   nameTimer = setTimeout(async () => {
-    const r = await getJSON(`/api/name?n=${encodeURIComponent(n)}`).catch(() => null);
+    const r = await getJSON(withNet(`/api/name?n=${encodeURIComponent(n)}`)).catch(() => null);
     if (!r) { hint.textContent = ''; return; }
     hint.className = `hint ${r.valid && r.free ? 'ok' : 'bad'}`;
     hint.textContent = !r.valid ? '2 to 32 of a to z, 0 to 9 and single dashes.' : r.free ? `${r.account} is free.` : `${r.account} is taken.`;
@@ -416,19 +452,27 @@ async function act(id) {
   if (id === 'signin') { w.signIn(); return; }
   const v = mine.vault;
   const runs = {
-    create: () => w.send(mine.factory.factory, [{ method: 'create_vault', args: { name: $('#mine-name').value.trim().toLowerCase() }, deposit: String(BigInt(mine.factory.min_deposit) + ONE_NEAR), tgas: 300 }]),
+    create: () => w.send(mine.factory.factory, [{ method: 'create_vault', args: { name: $('#mine-name').value.trim().toLowerCase() }, deposit: String(BigInt(mine.factory.min_deposit) + (NETWORK === 'testnet' ? ONE_NEAR : 5n * 10n ** 22n)), tgas: 300 }]),
     mint: () => w.send(USDC_T, [{ method: 'mint', args: { account_id: v, amount: String(50e6) }, tgas: 30 }]),
-    near: () => w.send(v, [{ transfer: String(ONE_NEAR) }]),
-    withdraw: () => w.send(v, [{ method: 'owner_withdraw', args: { token: USDC_T, amount: String(mine.snap.balances[USDC_T]) }, tgas: 50 }]),
+    near: () => w.send(v, [{ transfer: String(NETWORK === 'mainnet' ? ONE_NEAR / 2n : ONE_NEAR) }]),
+    withdraw: () => w.send(v, [{ method: 'owner_withdraw', args: { token: mine.usdc, amount: String(mine.snap.balances[mine.usdc]) }, tgas: 50 }]),
+    withdrawnear: () => w.send(v, [{ method: 'owner_withdraw', args: { token: 'near', amount: String(BigInt(mine.snap.native_yocto) - BigInt(mine.snap.storage_usage) * 10n ** 19n - 5n * 10n ** 23n) }, tgas: 50 }]),
+    close: () => w.send(v, [{ method: 'close', tgas: 100 }]),
+    fund: () => { $('#fund').scrollIntoView({ behavior: 'smooth' }); return null; },
     pause: () => w.send(v, [{ method: 'pause', tgas: 30 }]),
     unpause: () => w.send(v, [{ method: 'unpause', tgas: 30 }]),
     rmkey: () => w.send(v, [{ method: 'remove_agent_key', tgas: 30 }]),
     addkey: () => w.send(v, [{ method: 'add_agent_key', args: { allowance: String(ONE_NEAR / 2n) }, tgas: 30 }]),
   };
-  const run = id.startsWith('unblock:') ? () => w.send(v, [{ method: 'unblock_venue', args: { venue_id: id.slice(8) }, tgas: 30 }]) : runs[id];
+  const pos = (vid) => mine.snap.venues.find((x) => x.id === vid)?.position;
+  const run = id.startsWith('unblock:') ? () => w.send(v, [{ method: 'unblock_venue', args: { venue_id: id.slice(8) }, tgas: 30 }])
+    : id.startsWith('exit:') ? () => w.send(v, [{ method: 'guardian_exit', args: { venue_id: id.slice(5), amount: String(pos(id.slice(5))) }, tgas: 200 }])
+    : id.startsWith('claim:') ? () => w.send(v, [{ method: 'guardian_claim', args: { venue_id: id.slice(6) }, tgas: 200 }])
+    : runs[id];
   if (!run) return;
   try {
     const o = await run();
+    if (o === null) return;
     const fail = o && [o.status, ...(o.receipts_outcome || []).map((r) => r.outcome.status)].find((x) => x?.Failure);
     toast(fail ? 'The transaction was refused' : 'Sent');
   } catch (e) {
@@ -494,14 +538,17 @@ const fund = { info: null, loading: null };
 const DEFAULT_AMT = { ETH: '0.01', BTC: '0.001', SOL: '0.5', NEAR: '10', USDC: '25', USDT: '25' };
 const TRON_MIN_USD = 100;
 
-function loadFund() {
+function loadFund(force) {
+  if (force) fund.loading = null;
   if (!fund.loading) fund.loading = getJSON('/api/fund/tokens').then((info) => {
+    if (fund.target) info.recipient = fund.target;
     fund.info = info;
     $('#fund-asset').innerHTML = info.tokens.map((t) => `<option value="${esc(t.assetId)}">${esc(t.symbol)} on ${esc(t.chain)}</option>`).join('');
     const base = info.tokens.find((t) => t.chain === 'Base' && t.symbol === 'ETH');
     if (base) $('#fund-asset').value = base.assetId;
     $('#fund-note').innerHTML = info.stand_in
       ? `NEAR Intents runs on mainnet only, and this vault is on testnet. Quotes are live mainnet prices, routed to the stand-in account <code>${acct(info.recipient)}</code> until the mainnet vault is live. They are dry: no deposit address is made and nothing can be sent. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>.`
+      : fund.target ? `Deposits go to your vault <code>${acct(info.recipient)}</code>. Quotes are free; a deposit address is made only when you ask for one.`
       : `Deposits go to the mainnet NEARnest vault <code>${acct(info.recipient)}</code>, owned by <code>web3wagmi.near</code>. Quotes are free; a deposit address is made only when you ask for one.`;
     fundUsd();
   }).catch((e) => { fund.loading = null; $('#fund-note').textContent = `Could not read the 1Click token list: ${e.message}`; });
@@ -755,6 +802,8 @@ function setNetwork(n) {
   NETWORK = n;
   try { localStorage.setItem('nearnest-net', n); } catch {}
   const u = new URL(location.href); u.searchParams.set('net', n); history.replaceState(null, '', u);
+  // The wallet is bound to one network when it loads: switch by reloading.
+  if (mine.w || location.hash.startsWith('#mine')) { location.reload(); return; }
   document.querySelectorAll('#net-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.net === n)));
   document.body.dataset.net = n;
   state.plan = state.vault = state.agent = null;

@@ -276,14 +276,16 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, await cached(`vault-${net}-${id}`, 15_000, () => vaultSnapshot(net, id)));
     }
     if (url.pathname === '/api/name') {
-      const dep = await deployment(NET);
+      const net = netOf(url);
+      const dep = await deployment(net);
+      if (!dep.factory) return send(res, 200, { name: '', valid: false, error: 'no factory on this network yet' });
       const n = url.searchParams.get('n') || '';
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(n) || n.length < 2 || n.length > 32) return send(res, 200, { name: n, valid: false });
-      const taken = await query(NET, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
+      const taken = await query(net, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
       return send(res, 200, { name: n, valid: true, free: !taken, account: `${n}.${dep.factory}` });
     }
     if (url.pathname === '/api/dare') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-key-mainnet.json')).catch(() => '{}'));
-    if (url.pathname === '/api/factory') return send(res, 200, await cached(`factory-${NET}`, 15_000, () => factoryInfo(NET)));
+    if (url.pathname === '/api/factory') { const net = netOf(url); return send(res, 200, await cached(`factory-${net}`, 15_000, () => factoryInfo(net))); }
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
     if (url.pathname === '/api/agent') {
       const net = netOf(url);
