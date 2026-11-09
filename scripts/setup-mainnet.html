@@ -24,31 +24,45 @@
 <body>
 <main>
   <h1>Mainnet vault setup</h1>
-  <p>This page runs only on your machine. It asks your wallet to sign one transaction. Your keys stay in the wallet.</p>
+  <p>This page runs only on your machine. It asks your wallet to sign two transactions. Your keys stay in the wallet, and no key is added to your account.</p>
   <div class="card">
-    <dl id="facts"><dt>Loading</dt><dd>…</dd></dl>
+    <h2 style="font-size:17px;margin:0 0 8px">Transaction 1: the vault</h2>
+    <dl id="t1"><dt>Loading</dt><dd>…</dd></dl>
+    <button id="sign1" type="button" disabled>Sign transaction 1</button>
+    <p class="msg" id="msg1"></p>
+  </div>
+  <div class="card">
+    <h2 style="font-size:17px;margin:0 0 8px">Transaction 2: the risk feeder</h2>
+    <dl id="t2"><dt>Loading</dt><dd>…</dd></dl>
+    <button id="sign2" type="button" disabled>Sign transaction 2</button>
+    <p class="msg" id="msg2"></p>
   </div>
   <div class="card">
     <div id="who">Not connected.</div>
     <button id="connect" class="plain" type="button">Connect wallet</button>
-    <button id="sign" type="button" disabled>Sign the setup transaction</button>
     <button id="out" class="plain" type="button" hidden>Disconnect</button>
     <p class="msg" id="msg"></p>
   </div>
-  <p>After it succeeds, run <code>node scripts/mainnet-setup.mjs</code> again. It deploys the vault, adds the agent's key and deletes the temporary key, so no full-access key is left on the vault.</p>
+  <p>Then run <code>node scripts/mainnet-setup.mjs</code> again. It checks the vault on chain and records it.</p>
 </main>
 <script type="module">
-  import { init, signIn, signOut, send, account, onChange } from '/js/wallet.js';
+  import { init, signIn, signOut, send, onChange } from '/js/wallet.js';
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const near = (y) => (Number(BigInt(y) / 10n ** 20n) / 1e4).toString();
   const f = await (await fetch('/setup/mainnet.json')).json();
-  $('#facts').innerHTML = `<dt>Owner (signs)</dt><dd><code>${esc(f.owner)}</code></dd><dt>Creates</dt><dd><code>${esc(f.vault)}</code></dd>
-    <dt>Sends it</dt><dd>${esc(f.fund_near)} NEAR (about 3.3 NEAR stays locked as contract storage)</dd><dt>Adds key</dt><dd><code>${esc(f.temp_public)}</code>, temporary, deleted by the script</dd>`;
+  $('#t1').innerHTML = `<dt>To</dt><dd><code>${esc(f.vault)}</code> (new)</dd>
+    <dt>Actions</dt><dd>create the account; send ${near(f.fund_yocto)} NEAR (about 3.3 NEAR stays locked as contract storage); deploy the vault code (hash <code>${esc(f.code_hash)}</code>, the same as the testnet vault); <code>new_preset</code> with you as owner; <code>add_agent_key</code> (a key limited to the three agent methods)</dd>`;
+  $('#t2').innerHTML = `<dt>To</dt><dd><code>${esc(f.feeder)}</code></dd><dt>Actions</dt><dd>send ${near(f.feeder_yocto)} NEAR to the risk feeder for gas. It can only lower caps, block venues, pause and remove the agent key.</dd>`;
+  let wasm;
+  const ok = (el, html) => { el.className = 'msg ok'; el.innerHTML = html; };
+  const bad = (el, t) => { el.className = 'msg bad'; el.textContent = t; };
+  const link = (r) => { const h = r?.transaction?.hash || r?.transaction_outcome?.id; return h ? ` <a href="https://nearblocks.io/txns/${esc(h)}">Transaction</a>.` : ''; };
   function render(a) {
     $('#who').innerHTML = a ? `Connected as <code>${esc(a)}</code>` : 'Not connected.';
     $('#out').hidden = !a;
     const right = a === f.owner;
-    $('#sign').disabled = !right;
+    $('#sign1').disabled = $('#sign2').disabled = !right;
     $('#msg').className = 'msg' + (a && !right ? ' bad' : '');
     $('#msg').textContent = a && !right ? `Connect ${f.owner}: only the owner can create ${f.vault}.` : '';
   }
@@ -56,18 +70,22 @@
   onChange(render);
   $('#connect').onclick = () => signIn();
   $('#out').onclick = () => signOut();
-  $('#sign').onclick = async () => {
-    $('#sign').disabled = true;
-    $('#msg').className = 'msg'; $('#msg').textContent = 'Waiting for your wallet…';
+  $('#sign1').onclick = async () => {
+    $('#sign1').disabled = true; $('#msg1').className = 'msg'; $('#msg1').textContent = 'Waiting for your wallet…';
     try {
-      const r = await send(f.vault, [{ createAccount: true }, { transfer: f.fund_yocto }, { addFullKey: f.temp_public }]);
-      const h = r?.transaction?.hash || r?.transaction_outcome?.id || '';
-      $('#msg').className = 'msg ok';
-      $('#msg').innerHTML = `Signed.${h ? ` <a href="https://nearblocks.io/txns/${esc(h)}">Transaction</a>.` : ''} Now run <code>node scripts/mainnet-setup.mjs</code>.`;
-    } catch (e) {
-      $('#msg').className = 'msg bad'; $('#msg').textContent = `Not sent: ${e.message || e}`;
-      $('#sign').disabled = false;
-    }
+      wasm ||= new Uint8Array(await (await fetch('/setup/vault.wasm')).arrayBuffer());
+      const r = await send(f.vault, [
+        { createAccount: true }, { transfer: f.fund_yocto }, { deploy: wasm },
+        { method: 'new_preset', args: f.init, tgas: 100 },
+        { method: 'add_agent_key', args: { allowance: f.agent_allowance }, tgas: 30 },
+      ]);
+      ok($('#msg1'), `Signed.${link(r)}`);
+    } catch (e) { bad($('#msg1'), `Not sent: ${e.message || e}`); $('#sign1').disabled = false; }
+  };
+  $('#sign2').onclick = async () => {
+    $('#sign2').disabled = true; $('#msg2').className = 'msg'; $('#msg2').textContent = 'Waiting for your wallet…';
+    try { const r = await send(f.feeder, [{ transfer: f.feeder_yocto }]); ok($('#msg2'), `Signed.${link(r)}`); }
+    catch (e) { bad($('#msg2'), `Not sent: ${e.message || e}`); $('#sign2').disabled = false; }
   };
 </script>
 </body>

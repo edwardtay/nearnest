@@ -36,6 +36,7 @@ const TGAS = 10n ** 12n;
 export async function send(receiverId, calls) {
   const w = await selector.wallet();
   const actions = calls.map((c) => (c.createAccount ? actionCreators.createAccount()
+    : c.deploy ? actionCreators.deployContract(c.deploy)
     : c.addFullKey ? actionCreators.addKey(PublicKey.from(c.addFullKey), actionCreators.fullAccessKey())
     : c.transfer ? actionCreators.transfer(BigInt(c.transfer))
     : actionCreators.functionCall(c.method, c.args || {}, BigInt(c.tgas || 100) * TGAS, BigInt(c.deposit || '0'))));

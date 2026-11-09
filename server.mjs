@@ -226,7 +226,10 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === '/setup/mainnet') return send(res, 200, await readFile(path.join(DIR, 'scripts', 'setup-mainnet.html')), TYPES['.html']);
       if (url.pathname === '/setup/mainnet.json') {
         const st = JSON.parse(await readFile(path.join(DIR, 'keys', 'mainnet.json'), 'utf8'));
-        return send(res, 200, { owner: st.owner, vault: st.vault, temp_public: st.temp.public, fund_near: '4.6', fund_yocto: (46n * 10n ** 23n).toString() });
+        return send(res, 200, { owner: st.owner, vault: st.vault, feeder: st.feeder, ...st.preset });
+      }
+      if (url.pathname === '/setup/vault.wasm') {
+        return send(res, 200, await readFile(path.join(DIR, 'contract', 'target', 'wasm32-unknown-unknown', 'release', 'nearnest_vault.wasm')), 'application/wasm');
       }
       return send(res, 404, 'Not found', 'text/plain');
     }
