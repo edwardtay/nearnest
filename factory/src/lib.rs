@@ -129,7 +129,20 @@ impl Factory {
         let who = env::predecessor_account_id();
         let amount = self.refunds.remove(&who).unwrap_or(0);
         require!(amount > 0, "nothing to refund");
-        Promise::new(who).transfer(NearToken::from_yoctonear(amount))
+        Promise::new(who.clone()).transfer(NearToken::from_yoctonear(amount)).then(
+            Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_refund(who, U128(amount)),
+        )
+    }
+
+    /// If the refund transfer failed, credit it back so it can be claimed again.
+    #[private]
+    pub fn on_refund(&mut self, who: AccountId, amount: U128) -> bool {
+        let ok = env::promise_result_checked(0, 64).is_ok();
+        if !ok {
+            let prev = self.refunds.get(&who).copied().unwrap_or(0);
+            self.refunds.insert(who, prev + amount.0);
+        }
+        ok
     }
 
     // ---------------------------------------------------------------- owner
@@ -219,6 +232,16 @@ mod tests {
             Some("risk.testnet".parse().unwrap()),
             PRESET.into(),
         )
+    }
+
+    #[test]
+    fn failed_refund_is_credited_back() {
+        let mut f = factory();
+        let mut b = VMContextBuilder::new();
+        b.current_account_id("factory.testnet".parse().unwrap()).predecessor_account_id("factory.testnet".parse().unwrap());
+        testing_env!(b.build(), near_sdk::test_vm_config(), near_sdk::RuntimeFeesConfig::test(), Default::default(), vec![near_sdk::PromiseResult::Failed]);
+        assert!(!f.on_refund("alice.testnet".parse().unwrap(), U128(7)));
+        assert_eq!(f.get_refund("alice.testnet".parse().unwrap()).0, 7);
     }
 
     #[test]

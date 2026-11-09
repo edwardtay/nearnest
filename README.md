@@ -119,7 +119,7 @@ Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 rustup target add wasm32-unknown-unknown
 ./factory/build.sh             # builds contract/ then factory/
 
-# policy, planner, scenario and contract tests (38 JS, 37 Rust)
+# policy, planner, scenario and contract tests (39 JS, 43 Rust)
 npm test
 
 # live mainnet scan, no keys needed

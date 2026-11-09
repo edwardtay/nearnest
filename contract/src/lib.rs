@@ -542,6 +542,57 @@ impl Vault {
         )
     }
 
+    /// Close the vault and send everything it holds in NEAR to the owner, contract storage
+    /// included. Every venue must be empty (no position, pending supply or unbonding NEAR),
+    /// and the vault must hold none of its venues' tokens: their balances are read first,
+    /// and the account is deleted only if all are zero. Storage registrations held by the
+    /// venues (about 0.1 NEAR) stay with them.
+    pub fn close(&mut self) -> Promise {
+        self.assert_owner();
+        let mut tokens: Vec<String> = Vec::new();
+        for (id, v) in self.venues.iter() {
+            if self.position(id) > 0 || self.pending(id) > 0 || self.unbonding(id) > 0 {
+                env::panic_str(&format!("venue {id} still holds funds: exit it first"));
+            }
+            if v.token != NATIVE && !tokens.contains(&v.token) {
+                tokens.push(v.token.clone());
+            }
+        }
+        emit("close_started", json!({"tokens": tokens}));
+        let me = env::current_account_id();
+        let mut reads: Option<Promise> = None;
+        for t in &tokens {
+            let token: AccountId = t.parse().unwrap_or_else(|_| env::panic_str("bad token id"));
+            let q = Promise::new(token).function_call(
+                "ft_balance_of",
+                json!({"account_id": me}).to_string().into_bytes(),
+                NearToken::from_yoctonear(0),
+                GAS_VIEW,
+            );
+            reads = Some(match reads { None => q, Some(r) => r.and(q) });
+        }
+        match reads {
+            None => Promise::new(me).delete_account(self.owner.clone()),
+            Some(r) => r.then(Self::ext(me).with_static_gas(GAS_CALLBACK).on_close(tokens.len() as u64)),
+        }
+    }
+
+    /// Delete the vault if every token balance read back as zero.
+    #[private]
+    pub fn on_close(&mut self, reads: u64) -> Promise {
+        for i in 0..reads {
+            let balance = env::promise_result_checked(i, 128)
+                .ok()
+                .and_then(|b| serde_json::from_slice::<U128>(&b).ok())
+                .unwrap_or_else(|| env::panic_str("could not read a token balance"));
+            if balance.0 > 0 {
+                env::panic_str("the vault still holds tokens: withdraw them with owner_withdraw first");
+            }
+        }
+        emit("vault_closed", json!({"to": self.owner}));
+        Promise::new(env::current_account_id()).delete_account(self.owner.clone())
+    }
+
     /// The only way funds leave the vault: to the owner.
     pub fn owner_withdraw(&mut self, token: String, amount: U128) -> Promise {
         self.assert_owner();

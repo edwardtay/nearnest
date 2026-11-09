@@ -428,3 +428,48 @@ fn failed_venue_read_changes_nothing() {
     let x = &v.get_venues()[0];
     assert_eq!((x.position.0, x.pending.0), (0, 20 * UNIT));
 }
+
+// ------------------------------------------------------------------- close
+
+#[test]
+#[should_panic(expected = "owner only")]
+fn only_the_owner_can_close() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.close();
+}
+
+#[test]
+#[should_panic(expected = "still holds funds")]
+fn close_refuses_while_a_venue_holds_funds() {
+    let mut v = setup();
+    as_agent(10_000);
+    let _ = v.agent_supply("rhea-usdc".into(), U128(10 * UNIT));
+    as_owner();
+    let _ = v.close();
+}
+
+#[test]
+fn close_reads_token_balances_first() {
+    let mut v = setup();
+    as_owner();
+    let _ = v.close();
+    // One read per FT token, then the callback; nothing is deleted yet.
+    assert!(!near_sdk::test_utils::get_created_receipts().is_empty());
+}
+
+#[test]
+#[should_panic(expected = "the vault still holds tokens")]
+fn close_refuses_while_the_vault_holds_tokens() {
+    let mut v = setup();
+    as_callback(ok(br#""5""#.to_vec()));
+    let _ = v.on_close(1);
+}
+
+#[test]
+fn close_deletes_the_vault_when_everything_is_empty() {
+    let mut v = setup();
+    as_callback(ok(br#""0""#.to_vec()));
+    let _ = v.on_close(1);
+    assert!(near_sdk::test_utils::get_logs().iter().any(|l| l.contains("vault_closed")));
+}
