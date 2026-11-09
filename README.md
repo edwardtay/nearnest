@@ -6,12 +6,12 @@ Live page: https://nearnest.web3wagmi.com
 
 ## Try it in two minutes
 
-1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most, about 14%, and the agent caps it at 50% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 (about $11.2M since returned or frozen) and its pool is about 89% lent out.
+1. **See the policy judge real yields.** Open the live page, or run `node agent/scan.mjs`. You see mainnet rates read from the venue contracts. Rhea Lend USDC pays the most (10.7% on 9 November 2026), and the agent caps it at 50% of its venue limit, because Rhea Lend lost $18.4M on 16 April 2026 (about $11.2M since returned or frozen) and its pool was 86.8% lent out that day.
 2. **See the vault on chain.** Open [`v2.nearnest-mvz1l0ba.testnet`](https://testnet.nearblocks.io/address/v2.nearnest-mvz1l0ba.testnet) and its access keys. It has one key, a function-call key limited to `agent_supply`, `agent_withdraw` and `agent_claim_unstaked`. There is no full-access key.
 3. **See the agent move money.** The Overview shows the position, blended yield and the agent's next move, computed live. The Agent view links each transaction, each with the policy reasons recorded at the time.
    Under **NEAR AI proposals** a model on NEAR AI Cloud proposes the move instead, and the policy accepts it, cuts it to the bound, or refuses it. On mainnet the model proposed staking all 0.71 idle NEAR in LiNEAR; the policy cut it to the 0.5 NEAR cap and the agent signed that ([C6ZBVv…](https://nearblocks.io/txns/C6ZBVvRpmnHUdoxvCCUg9jXeAxVkFRrQFNKiB69KAvwg)), after the risk feeder had capped Rhea USDC on chain ([4rNvUZ…](https://nearblocks.io/txns/4rNvUZ5n39sTbfqqf48RXBgvWBuAxaAYTBKDVcUhTfHG)). On testnet one proposal was signed and executed. In another, a hostile instruction was planted in the data; the model ignored it and proposed a normal supply. Three rows show what the check does with a compromised model's answers (an unapproved account, an oversize supply, a venue the policy holds). Each real proposal links its request, reply and signature; see [NEAR AI proposer](#near-ai-proposer) for how to check them.
 4. **Ask "what if".** The What if view applies one event to the live mainnet read (USDC at $0.991, a fresh Rhea or LiNEAR exploit, a drained USDC pool, or the April hack ageing out) and runs the same policy and planner against the vault. For the depeg it also shows the recorded testnet response: the risk feeder blocked Burrow USDC, the agent key pulled the 12.5 USDC out, the owner reopened the venue and the agent went back in.
-5. **See a stolen key fail.** The Drill view runs 28 checks with the real keys, each with its transaction. 14 attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a move past the daily limit, a supply past the on-chain risk cap, a supply while paused, a supply into a blocked venue, the deleted agent key, and the risk feeder trying to raise a cap, unpause or unblock. 14 permitted operations go through, including exits while paused or blocked, the feeder deleting the agent key and exiting without it, and the owner restoring everything.
+5. **See a stolen key fail.** The Drill view runs 28 checks with the real keys. 24 have a transaction; the other 4 (a transfer, `owner_withdraw`, a direct token call, the deleted key) are refused by NEAR's access-key check before a transaction exists, and the drill records that error instead. 14 attempts are refused, each with its own reason: a transfer, `owner_withdraw`, a direct token call, an unapproved venue, an oversize move, a move inside the cooldown, a move past the daily limit, a supply past the on-chain risk cap, a supply while paused, a supply into a blocked venue, the deleted agent key, and the risk feeder trying to raise a cap, unpause or unblock. 14 permitted operations go through, including exits while paused or blocked, the feeder deleting the agent key and exiting without it, and the owner restoring everything.
 
 6. **Make your own vault.** In My vault, connect a NEAR testnet wallet and create `<name>.nearnest-factory-mvzmesjc.testnet` in one transaction. The factory deploys the vault, adds the agent's function-call key (no full-access key) and makes you the owner. Fund it with test USDC and NEAR, and the agent runs it under the same rules; the owner buttons withdraw to you, pause, and remove or restore the agent's key.
 7. **Fund from any chain.** In My vault, pick a token you hold on its own chain (ETH on Base, USDC on Solana, USDT on Tron, BTC and others) and an amount, and press Get a live quote. NEAR Intents solvers price the swap through the 1Click API, and you see what the vault would receive in NEAR USDC, the route's cost and the time to settle. Or run `node scripts/fund-intents.mjs base:ETH 0.01`. See [Fund from any chain](#fund-from-any-chain) for why these quotes are dry until the mainnet vault is live.
@@ -81,7 +81,7 @@ The agent runs steps 2 to 4 on every proposal and records the result. It does no
 
 A vault takes deposits in NEAR USDC, but most people hold their money on other chains. [`agent/intents.mjs`](agent/intents.mjs) uses the NEAR Intents 1Click API: the user sends a token to a one-time deposit address on its own chain, solvers fill the swap inside NEAR Intents, and 1Click sends NEAR USDC to the vault with `ft_transfer`. The vault needed no change: it registers for USDC storage when it is created and keeps any token it receives (`ft_on_transfer` returns 0), and the agent finds the new USDC idle on its next round and supplies it under the usual caps. Nobody but the owner can take it out.
 
-NEAR Intents runs on mainnet only and the vaults are on testnet, so the page and the default script make dry quotes: live mainnet prices and routes, with no deposit address. They are routed to `intents.near`, an existing mainnet account registered for USDC, until the mainnet vault exists. 1Click answers a bare HTTP 500 when the recipient account does not exist or has no USDC storage, so the server and script check both on mainnet first and say which one is missing. A real deposit is `node scripts/fund-intents.mjs base:USDC 2 --to <mainnet vault> --live --refund <your Base address>`: it prints the deposit address, follows the swap to SUCCESS or REFUNDED and logs it to `demo/intents-mainnet.json`. You send the funds from your own wallet, and the script holds no key. Refunds go to the origin-chain address you give.
+NEAR Intents runs on mainnet only. The page quotes into the mainnet vault (see [Deployed](#deployed)); its quotes are dry: live mainnet prices and routes, with no deposit address. The script quotes to `intents.near`, an existing mainnet account registered for USDC, unless you pass `--to <vault>`. 1Click answers a bare HTTP 500 when the recipient account does not exist or has no USDC storage, so the server and script check both on mainnet first and say which one is missing. A real deposit is `node scripts/fund-intents.mjs base:USDC 2 --to <mainnet vault> --live --refund <your Base address>`: it prints the deposit address, follows the swap to SUCCESS or REFUNDED and logs it to `demo/intents-mainnet.json`. You send the funds from your own wallet, and the script holds no key. Refunds go to the origin-chain address you give.
 
 ### Factory
 
@@ -96,7 +96,7 @@ NEAR Intents runs on mainnet only and the vaults are on testnet, so the page and
 | Owner | `add_venue`, `set_venue_enabled`, `unblock_venue`, `clear_risk_cap`, `set_max_move`, `set_policy`, `set_risk_feeder`, `set_agent_key`, `add_agent_key`, `unpause`, `storage_deposit_on`, `owner_withdraw`, `update_contract` |
 | Anyone | `sync_position` (reads the vault's holding from the venue), `get_vault`, `get_venues` |
 
-Every state change emits a NEP-297 event under the `nearnest` standard.
+Moves, blocks, cap changes, pauses, key removal and contract upgrades emit NEP-297 events under the `nearnest` standard. The owner's configuration setters (`set_policy`, `set_max_move`, `set_risk_feeder`, `set_agent_key`, `set_venue_enabled`) do not; read them with `get_vault` and `get_venues`.
 
 ### Venues
 
@@ -113,15 +113,16 @@ The testnet vault takes its judgement from the matching mainnet venue, since tes
 Requirements: Node 20+, Rust 1.86 with the `wasm32-unknown-unknown` target.
 
 ```bash
+# build first: the factory embeds the vault wasm (the --cfg near flag keeps panic messages readable)
+rustup target add wasm32-unknown-unknown
+./factory/build.sh             # builds contract/ then factory/
+
 # policy, planner, scenario and contract tests (38 JS, 31 Rust)
 npm test
 
 # live mainnet scan, no keys needed
 node agent/scan.mjs            # table
 node agent/scan.mjs --json     # full report
-
-# build the contract (the --cfg near flag keeps panic messages readable)
-cd contract && ./build.sh && cd ..
 
 # testnet: create owner, feeder and vault, approve venues, add the agent key
 cd scripts && npm install
@@ -188,6 +189,7 @@ server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /ap
 ## Limits
 
 - The mainnet vault holds about 3.3 NEAR as contract storage, which stays locked unless a later `update_contract` adds a way to close it.
+- An AI proposal whose signature does not verify is refused and never executed.
 - The NEAR AI proposer runs only when the agent is started with `--ai`; the hosted agent's moves so far came from the deterministic planner, except the one marked NEAR AI.
 - The page's Fund from any chain quotes are dry (no deposit address); a real deposit runs with `scripts/fund-intents.mjs --live`. 1Click sets minimums on some routes (currently $100 from Tron).
 - One vault serves one owner. Shares for several depositors are out of scope.

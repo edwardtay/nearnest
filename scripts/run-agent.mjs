@@ -147,6 +147,13 @@ async function aiPropose(report, p) {
     sig = await ai.fetchSignature({ key: AI_KEY, model, chatId: r.chat_id });
     verify = { ...verifySignature(sig, r.hashes), attested_signer: attestation.signing_address?.toLowerCase() === String(sig.signing_address).toLowerCase() };
   } catch (e) { verify = { error: String(e.message || e) }; }
+  // Fail closed: a proposal whose signature does not check out is never executed.
+  const verified = !!(verify?.text_matches && verify?.signer_matches && verify?.attested_signer);
+  if (!verified && check.step) {
+    check.why = ['signature did not verify, so the proposal is not executed', ...check.why];
+    check.outcome = 'refused';
+    delete check.step;
+  }
   console.log(`\nNEAR AI (${model}) proposes: ${JSON.stringify(r.proposal ?? r.text.slice(0, 200))}`);
   console.log(`policy check: ${check.outcome.toUpperCase()}  ${check.why.join('; ')}`);
   console.log(`signature: ${verify?.text_matches && verify?.signer_matches && verify?.attested_signer ? `verified, signed by ${sig.signing_address}, the address in the TEE attestation` : JSON.stringify(verify)}`);
