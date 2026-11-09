@@ -1,0 +1,24 @@
+{
+  "runs": [
+    {
+      "at": "2026-11-09T03:17:15.619Z",
+      "recipient": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
+      "origin": "Base:USDC",
+      "amount_in": "25.0",
+      "amount_out": "24.9952",
+      "status": "SUCCESS",
+      "deposit_address": "0x29466185c888AF33b1c6AA8f9980dB341EeD4Edf",
+      "origin_tx": "https://basescan.org/tx/0xc1971b205c517efba3e272aaa1c37a3934c9053a3ecbfdec1ad89c4a95bbdf3e",
+      "near_tx": "https://nearblocks.io/txns/8jFyDdFCQ4egw2b9DQHCKPGzfsESvhQe7ncph3xPSeZ",
+      "intent_hashes": [
+        "7XJdAEc5fzymvbU94ex7PL3n7LWHyCb6ZwYv8Sx6NogM",
+        "DXGXWaCzu4Ga7MqQzZ4tAfvbotNMKiwssHPk3BWRTsBn",
+        "DGGpWtGoyzLE45kDe9JrH8nV7f6vreCG8ZDX8KbkKG73"
+      ],
+      "deposited": "33.0",
+      "refunded": "7.9976",
+      "refund_note": "sent 33 USDC against a 25 USDC quote; 1Click swapped 25 and refunded the rest to the origin-chain refund address",
+      "refund_tx": "https://basescan.org/tx/0x18dc5ebaf8aa2263b502bd4e1022c022a4a201262d51b803751ef1bb5e5eb9c2"
+    }
+  ]
+}

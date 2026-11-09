@@ -58,8 +58,12 @@ const log = JSON.parse(await readFile(LOG, 'utf8').catch(() => '{"runs":[]}'));
 log.runs.push({
   at: new Date().toISOString(), recipient: to, origin: `${t.chain}:${t.symbol}`, amount_in: quote.amountInFormatted,
   amount_out: d.amountOutFormatted ?? quote.amountOutFormatted, status: st.status, deposit_address: quote.depositAddress,
-  origin_tx: d.originChainTxHashes?.[0]?.explorerUrl, near_tx: d.destinationChainTxHashes?.[0]?.explorerUrl,
+  deposited: d.depositedAmountFormatted, refunded: d.refundedAmountFormatted,
+  // 1Click often leaves explorerUrl empty: keep the hashes.
+  origin_tx: d.originChainTxHashes?.[0]?.explorerUrl || d.originChainTxHashes?.[0]?.hash,
+  near_tx: d.destinationChainTxHashes?.[0]?.explorerUrl || d.destinationChainTxHashes?.[0]?.hash,
+  refund_tx: d.destinationChainTxHashes?.[1]?.explorerUrl || d.destinationChainTxHashes?.[1]?.hash,
   intent_hashes: d.intentHashes,
 });
 await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
-console.log(`logged to demo/intents-mainnet.json${d.destinationChainTxHashes?.[0] ? `\nNEAR delivery: ${d.destinationChainTxHashes[0].explorerUrl}` : ''}`);
+console.log(`logged to demo/intents-mainnet.json${d.destinationChainTxHashes?.[0] ? `\nNEAR delivery: ${d.destinationChainTxHashes[0].explorerUrl || d.destinationChainTxHashes[0].hash}` : ''}${Number(d.refundedAmount) > 0 ? `\nrefunded ${d.refundedAmountFormatted} to ${refund}` : ''}`);
