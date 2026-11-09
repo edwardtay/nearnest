@@ -94,6 +94,8 @@ svg use{pointer-events:none}
 .cool b{color:var(--ink);font-family:var(--mono);font-weight:600}
 .btn-cmd{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:2px solid var(--border-strong);border-radius:10px;background:#f8fafc;cursor:pointer;color:var(--ink)}
 .btn-cmd code{font:500 12.5px var(--mono)}
+.cmd{display:inline-flex;align-items:center;min-height:36px;padding:4px 12px;border:2px solid var(--border-strong);border-radius:10px;background:#f8fafc;color:var(--ink);min-width:0}
+.cmd code{font:500 12.5px var(--mono);overflow-wrap:break-word}
 .btn-cmd svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
 
 .stats{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -347,3 +349,17 @@ a.tile:hover{border-color:var(--ink);transform:translateY(-1px)}
 a.tile:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 @media (max-width:700px){.tiles.start{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){a.tile{transition:none}}
+
+/* compact controls for mouse users; phones keep 44px targets */
+@media (pointer:fine){
+  .btn-icon{width:36px;height:36px}
+  .btn-cta{min-height:36px;padding:9px 16px;font-size:14px}
+  .btn-cmd{min-height:36px}
+  .inp{min-height:36px}
+  .acts button{min-height:44px}
+  .scen button{min-height:56px}
+}
+@media (max-width:640px){
+  .seg button{min-height:44px}
+  .app-id{min-height:44px;align-items:center}
+}

@@ -526,7 +526,7 @@ function renderAI(d) {
     const ok = v && v.text_matches && v.signer_matches && v.attested_signer;
     const att = p.evidence?.attestation;
     const ev = p.simulated ? '<p class="ev">No model was called: this row shows what the policy check does with a hostile answer. Nothing was signed.</p>'
-      : `<p class="ev">${ok ? `Signature checked: the hashes of the request and reply match the signed text, and the signer <code>${esc(short(p.evidence.signing_address))}</code> is the key named in NEAR AI's TEE attestation${att?.models?.[0]?.verified ? ` (model attested via ${esc(att.models[0].provider)})` : ''}.` : 'Signature not verified.'} <a href="/api/ai/evidence?chat_id=${encodeURIComponent(p.chat_id)}">Request, reply and signature</a></p>`;
+      : `<p class="ev">${ok ? `Signature matches: the hashes of the request and reply equal the signed text, and the signer <code>${esc(short(p.evidence.signing_address))}</code> is the key named in NEAR AI's TEE attestation${att?.models?.[0]?.verified ? ` (model attested via ${esc(att.models[0].provider)})` : ''}.` : 'Signature does not match.'} <a href="/api/ai/evidence?chat_id=${encodeURIComponent(p.chat_id)}">Request, reply and signature</a></p>`;
     return `<li><div class="top"><span class="pill ${p.outcome === 'hold' ? 'holdai' : esc(p.outcome)}">${AI_OUTCOME[p.outcome] || esc(p.outcome)}</span><span class="t">${esc(what)}</span></div>
       <div class="tags">${tags}</div>
       ${pr.reason ? `<p class="q">${esc(pr.reason)}</p>` : ''}
@@ -547,6 +547,8 @@ function loadFund(force) {
   if (!fund.loading) fund.loading = getJSON('/api/fund/tokens').then((info) => {
     if (fund.target) info.recipient = fund.target;
     fund.info = info;
+    const label = (t) => `${t.symbol} on ${t.chain}`;
+    info.tokens = [...info.tokens].sort((a, b) => label(a).localeCompare(label(b)));
     $('#fund-asset').innerHTML = info.tokens.map((t) => `<option value="${esc(t.assetId)}">${esc(t.symbol)} on ${esc(t.chain)}</option>`).join('');
     const base = info.tokens.find((t) => t.chain === 'Base' && t.symbol === 'ETH');
     if (base) $('#fund-asset').value = base.assetId;
@@ -652,6 +654,7 @@ async function openWhatIf(arg) {
   if (!state.scenarios) {
     try { state.scenarios = await getJSON('/api/scenarios'); } catch { $('#scen-story').textContent = 'Could not load the scenarios.'; return; }
   }
+  state.scenarios = [...state.scenarios].sort((a, b) => a.title.localeCompare(b.title));
   if (state.scenarios.some((x) => x.id === arg)) scenId = arg;
   $('#scen').innerHTML = state.scenarios.map((x) => `<button type="button" data-id="${esc(x.id)}" aria-pressed="${x.id === scenId}">${esc(x.title)}</button>`).join('');
   $('#scen-cmd-t').textContent = `node scripts/run-agent.mjs --scenario ${scenId}`;
@@ -701,9 +704,6 @@ $('#scen').addEventListener('click', (e) => {
   scenId = b.dataset.id;
   history.replaceState(null, '', `#whatif/${scenId}`);
   openWhatIf(scenId);
-});
-$('#scen-cmd').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText($('#scen-cmd-t').textContent); toast('Command copied'); } catch { toast('Copy failed'); }
 });
 
 // ----------------------------------------------------------------- the drill
@@ -787,9 +787,6 @@ async function refresh() {
 
 $('#rescan').addEventListener('click', async () => { await loadScan(); renderOverview(); });
 $('#refresh').addEventListener('click', refresh);
-$('#copy-cmd').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText('node scripts/run-agent.mjs'); toast('Command copied'); } catch { toast('Copy failed'); }
-});
 
 // The mainnet agent key, published on purpose (demo/agent-key-mainnet.json).
 let dare = null;

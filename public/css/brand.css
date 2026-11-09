@@ -97,12 +97,13 @@
 .site-nav-link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: 4px; }
 
 @media (max-width: 640px) {
-  :root { --brand-h: 36px; --nav-h: 36px; --chrome-h: 72px; }
+  :root { --brand-h: 44px; --nav-h: 44px; --chrome-h: 88px; }
   .site-brand-inner { padding: 0 12px; }
   .site-brand-mark { width: 24px; height: 24px; }
   .site-brand-text { font-size: 18px; }
   .site-nav-inner { padding: 0 8px; justify-content: center; }
-  .site-nav-link { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; font-size: 11px; letter-spacing: .1em; }
+  .site-nav-link { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; font-size: 11px; letter-spacing: .1em; min-height: 44px; display: flex; align-items: center; }
+  .site-brand-link { min-height: 44px; }
   .site-nav-link.active::before { left: 11px; right: 11px; }
 }
 @media (max-width: 380px) {

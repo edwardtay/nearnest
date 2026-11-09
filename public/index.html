@@ -23,8 +23,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/css/brand.css" />
-<link rel="stylesheet" href="/css/app.css" />
+<link rel="stylesheet" href="/css/brand.css?v=20261109" />
+<link rel="stylesheet" href="/css/app.css?v=20261109" />
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"NEARnest","applicationCategory":"FinanceApplication","operatingSystem":"Web","url":"https://nearnest.web3wagmi.com/","description":"A yield agent on NEAR held to an on-chain policy: approved venues, per-move and per-venue caps, cooldowns, a risk feeder that can only block, and withdrawals only to the owner.","author":{"@type":"Person","name":"Edward Tay","url":"https://edwardtay.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
 </script>
@@ -159,7 +159,7 @@
           <ul class="next-why" id="next-why"></ul>
           <div class="next-foot">
             <span class="cool" id="next-cool"></span>
-            <button class="btn-cmd" id="copy-cmd" type="button"><code>node scripts/run-agent.mjs</code><svg><use href="#i-copy"/></svg></button>
+            <span class="cmd" id="copy-cmd"><code>node scripts/run-agent.mjs</code></span>
           </div>
         </div>
       </div>
@@ -316,7 +316,7 @@
       </div>
       <div class="card" id="ai-card">
         <div class="card-head"><h3>NEAR AI proposals</h3><span class="badge">NEAR AI Cloud</span></div>
-        <p class="fund-sub">With <code>--ai</code>, a model on NEAR AI Cloud proposes the agent's next supply or hold from the same live facts the planner reads. The policy then accepts it, cuts it to the policy bound, or refuses it, and the vault checks again on chain. The model can make the agent do less than the policy allows, never more. Each reply is signed by NEAR AI's gateway inside a TEE, so you can check that the proposal came from that model unchanged.</p>
+        <p class="fund-sub">With <code>--ai</code>, a model on NEAR AI Cloud proposes the agent's next supply or hold from the same live facts the planner reads. The policy then accepts it, cuts it to the policy bound, or refuses it, and the vault checks again on chain. The model can only shrink or refuse a move the policy allows. Each reply is signed by NEAR AI's gateway inside a TEE, so you can check that the proposal came from that model unchanged.</p>
         <ul class="ai-list" id="ai-list"><li class="loading">Reading proposals…</li></ul>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="moves-tbl">
@@ -347,7 +347,7 @@
       <div class="card">
         <div class="card-head"><h3>Run it on the testnet vault</h3></div>
         <p class="scen-run">The same command makes the vault respond for real: the risk feeder signs the block, the agent key signs the exit, and only the owner can reopen the venue.</p>
-        <button class="btn-cmd" id="scen-cmd" type="button"><code id="scen-cmd-t">node scripts/run-agent.mjs --scenario usdc-depeg</code><svg><use href="#i-copy"/></svg></button>
+        <span class="cmd" id="scen-cmd"><code id="scen-cmd-t">node scripts/run-agent.mjs --scenario usdc-depeg</code></span>
         <ol class="feed" id="scen-log"></ol>
       </div>
     </section>
@@ -408,6 +408,6 @@
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
-<script type="module" src="/js/app.js"></script>
+<script type="module" src="/js/app.js?v=20261109"></script>
 </body>
 </html>
