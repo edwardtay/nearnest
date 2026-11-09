@@ -1,22 +1,26 @@
 #!/usr/bin/env node
-/* Mainnet vault setup. The owner signs two transactions in their own wallet; no key is ever
-   added on the owner's behalf, and this script never sees the owner's key.
+/* Mainnet vault setup. The owner only sends NEAR from their own wallet (two plain transfers);
+   no key is added to any account of theirs, and this script never sees the owner's key.
+   (Meteor blocks apps from adding keys or deploying code, so a named sub-account vault is
+   not possible from a wallet; the vault is an implicit account instead.)
 
-     node scripts/mainnet-setup.mjs [--owner web3wagmi.near] [--name nearnest]
+     node scripts/mainnet-setup.mjs [--owner web3wagmi.near]
 
-   First run: makes the agent key and the risk feeder key (keys/mainnet.json, gitignored)
-   and the exact transactions, then tells you to open the local signing page:
-     1. to <name>.<owner>: create the account, send it 4.5 NEAR, deploy the vault code
-        (the same wasm as the testnet vault), new_preset (owner, risk feeder, venues, caps,
-        storage registration) and add_agent_key. The vault never gets a full-access key.
-     2. to the risk feeder, an implicit account of a key made here: send it 0.1 NEAR.
-   Next run: checks the result on chain (code hash, owner, feeder, keys) and writes
-   demo/deployment-mainnet.json. Safe to re-run. */
+   First run: makes a vault key, the agent key and the risk feeder key (keys/mainnet.json,
+   gitignored). The vault and the feeder are implicit accounts: each id is the hex of its
+   public key, and the account exists once it receives NEAR. Then open the local page and send
+     1. 4.6 NEAR to the vault        2. 0.1 NEAR to the risk feeder
+   Next run: one transaction signed by the vault key on the vault itself deploys the vault code
+   (the same wasm as the testnet vault), runs new_preset (owner, feeder, venues, caps, storage),
+   adds the agent's function-call key and deletes the vault key. No full-access key remains,
+   so from then on only the contract's rules decide what happens to the money. Then it checks
+   everything on chain and writes demo/deployment-mainnet.json. Safe to re-run. */
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { utils } from 'near-api-js';
-import { loadState, saveState, newKey, WASM, NEAR, ROOT } from './lib.mjs';
+import { transactions } from 'near-api-js';
+import { loadState, saveState, newKey, near, WASM, NEAR, TGAS, ROOT } from './lib.mjs';
 
 const net = 'mainnet';
 const args = process.argv.slice(2);
@@ -29,16 +33,18 @@ const base58 = (buf) => { let n = BigInt('0x' + Buffer.from(buf).toString('hex')
 
 const s = loadState(net);
 s.owner ||= flag('--owner', 'web3wagmi.near');
-s.vault ||= `${flag('--name', 'nearnest')}.${s.owner}`;
+const hexOf = (pub) => Buffer.from(utils.PublicKey.from(pub).data).toString('hex');
+if (!s.vaultKey) s.vaultKey = newKey();
+s.vault = hexOf(s.vaultKey.public);
 if (!s.agentKey) s.agentKey = newKey();
 if (!s.feederKey) s.feederKey = newKey();
 // An implicit account: its id is the hex of the public key, and it exists once it receives NEAR.
-s.feeder = Buffer.from(utils.PublicKey.from(s.feederKey.public).data).toString('hex');
-s.signers = { [s.feeder]: s.feederKey.secret };
+s.feeder = hexOf(s.feederKey.public);
+s.signers = { [s.feeder]: s.feederKey.secret, [s.vault]: s.vaultKey.secret };
+s.txs ||= {};
 delete s.temp;
-delete s.txs;
 s.preset = {
-  fund_yocto: NEAR(4.5).toString(),
+  fund_yocto: NEAR(4.6).toString(),
   feeder_yocto: NEAR(0.1).toString(),
   agent_allowance: NEAR(0.25).toString(),
   init: {
@@ -67,18 +73,32 @@ const view = async (c, m, a = {}) => {
   return r ? JSON.parse(Buffer.from(r.result).toString()) : null;
 };
 
-const acct = await rpc({ request_type: 'view_account', account_id: s.vault });
+let acct = await rpc({ request_type: 'view_account', account_id: s.vault });
 const feederAcct = await rpc({ request_type: 'view_account', account_id: s.feeder });
 if (!acct || !feederAcct) {
-  console.log(`Your turn: sign ${acct ? 'transaction 2 (fund the risk feeder)' : 'both transactions'} with ${s.owner} on the local page.
-
+  console.log(`Your turn: on the local page, send from ${s.owner}:
+${acct ? '' : `  1. 4.6 NEAR to the vault        ${s.vault}\n`}${feederAcct ? '' : `  2. 0.1 NEAR to the risk feeder  ${s.feeder}\n`}
   NEARNEST_SETUP=1 npm start          # in ${ROOT}
   http://localhost:8787/setup/mainnet
-
-  1. ${s.vault}: create, send 4.5 NEAR, deploy the vault code (${s.preset.code_hash}), new_preset, add_agent_key
-  2. ${s.feeder} (risk feeder): send 0.1 NEAR
 Then run this script again.`);
   process.exit(0);
+}
+
+if (acct.code_hash === '11111111111111111111111111111111') {
+  if (BigInt(acct.amount) < NEAR(4.4)) { console.error(`the vault holds ${acct.amount} yocto; send the full 4.6 NEAR first`); process.exit(1); }
+  const nc = await near(net, s);
+  const self = await nc.account(s.vault);
+  const o = await self.signAndSendTransaction({ receiverId: s.vault, actions: [
+    transactions.deployContract(fs.readFileSync(WASM)),
+    transactions.functionCall('new_preset', s.preset.init, 100n * TGAS, 0n),
+    transactions.addKey(utils.PublicKey.from(s.agentKey.public), transactions.functionCallAccessKey(s.vault, ['agent_supply', 'agent_withdraw', 'agent_claim_unstaked'], BigInt(s.preset.agent_allowance))),
+    transactions.deleteKey(utils.PublicKey.from(s.vaultKey.public)),
+  ] });
+  s.txs.deploy_init_agent_key_delete_vault_key = `https://nearblocks.io/txns/${o.transaction.hash}`;
+  saveState(net, s);
+  console.log(`deployed: ${s.txs.deploy_init_agent_key_delete_vault_key}`);
+  await new Promise((r) => setTimeout(r, 3000));
+  acct = await rpc({ request_type: 'view_account', account_id: s.vault });
 }
 
 const keyList = (await rpc({ request_type: 'view_access_key_list', account_id: s.vault })).keys;
@@ -95,7 +115,7 @@ const checks = {
 for (const [k, ok] of Object.entries(checks)) console.log(`${ok ? 'ok  ' : 'FAIL'}  ${k}`);
 const dep = {
   network: net, vault: s.vault, owner: s.owner, feeder: s.feeder, agent_key: s.agentKey.public,
-  code_hash: acct.code_hash, checks, access_keys: keyList.map((k) => ({ public_key: k.public_key, permission: k.access_key.permission })),
+  code_hash: acct.code_hash, checks, setup_txs: s.txs, access_keys: keyList.map((k) => ({ public_key: k.public_key, permission: k.access_key.permission })),
   explorer: `https://nearblocks.io/address/${s.vault}`,
 };
 fs.writeFileSync(path.join(ROOT, 'demo', 'deployment-mainnet.json'), JSON.stringify(dep, null, 2) + '\n');
