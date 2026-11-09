@@ -2,10 +2,10 @@
   "network": "mainnet",
   "vault": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
   "agent_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
-  "updated_at": "2026-11-09T03:18:54.239Z",
+  "updated_at": "2026-11-09T03:29:18.179Z",
   "last_run": {
-    "at": "2026-11-09T03:18:54.239Z",
-    "result": "made 1 move(s)",
+    "at": "2026-11-09T03:29:18.179Z",
+    "result": "NEAR AI proposal refused: the reply was not a JSON move",
     "scenario": null
   },
   "mirror": {
