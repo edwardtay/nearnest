@@ -234,7 +234,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, 'Not found', 'text/plain');
     }
     if (url.pathname === '/api/ai' || url.pathname === '/api/ai/evidence') {
-      const d = JSON.parse(await readFile(path.join(DIR, 'demo', `ai-${NET}.json`), 'utf8').catch(() => JSON.stringify({ network: NET, proposals: [] })));
+      // Proposals from every network the agent ran on (testnet demo vault and the mainnet vault), newest first.
+      const d = { proposals: [] };
+      for (const n of ['mainnet', 'testnet']) {
+        const f = JSON.parse(await readFile(path.join(DIR, 'demo', `ai-${n}.json`), 'utf8').catch(() => '{"proposals":[]}'));
+        d.proposals.push(...f.proposals.map((p) => ({ network: n, vault: f.vault, ...p })));
+      }
+      d.proposals.sort((x, y) => (x.at < y.at ? -1 : 1));
       if (url.pathname === '/api/ai/evidence') {
         const p = d.proposals.find((x) => x.chat_id && x.chat_id === url.searchParams.get('chat_id'));
         if (!p) return send(res, 404, { error: 'no proposal with that chat_id' });

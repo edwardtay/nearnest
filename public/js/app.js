@@ -450,6 +450,7 @@ function renderAI(d) {
     const vname = VENUE[pr.venue]?.name || pr.venue || '';
     const what = pr.action === 'hold' ? 'Hold' : pr.action ? `${pr.action[0].toUpperCase()}${pr.action.slice(1)} ${aiAmount(pr.amount, pr.venue)} to ${vname}` : 'No valid move';
     const tags = [
+      p.network === 'mainnet' ? '<span class="tag main">Mainnet</span>' : '<span class="tag">Testnet</span>',
       p.simulated ? '<span class="tag warn">Simulated compromised model</span>' : `<span class="tag">${esc(p.model)}</span>`,
       p.injected ? '<span class="tag warn">Hostile instruction planted in the data</span>' : '',
       p.dry ? '<span class="tag">Dry run</span>' : '',
