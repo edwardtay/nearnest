@@ -256,6 +256,11 @@
         <div class="card-head"><h3>Plan right now</h3><span class="cool" id="plan-cool"></span></div>
         <ol class="plan" id="plan"></ol>
       </div>
+      <div class="card" id="ai-card">
+        <div class="card-head"><h3>NEAR AI proposals</h3><span class="badge">NEAR AI Cloud</span></div>
+        <p class="fund-sub">With <code>--ai</code>, a model on NEAR AI Cloud proposes the agent's next supply or hold from the same live facts the planner reads. The policy then accepts it, cuts it to the policy bound, or refuses it, and the vault checks again on chain. The model can make the agent do less than the policy allows, never more. Each reply is signed by NEAR AI's gateway inside a TEE, so you can check that the proposal came from that model unchanged.</p>
+        <ul class="ai-list" id="ai-list"><li class="loading">Reading proposals…</li></ul>
+      </div>
       <div class="tbl-wrap"><table class="tbl" id="moves-tbl">
         <thead><tr><th>Move</th><th class="n">Amount</th><th>Policy at the time</th><th>Proof</th></tr></thead>
         <tbody><tr><td colspan="4" class="loading">Reading the agent log…</td></tr></tbody>

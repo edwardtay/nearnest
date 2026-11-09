@@ -435,6 +435,42 @@ if (new URLSearchParams(location.search).has('transactionHashes') || new URLSear
   setTimeout(() => toast('Signed in your wallet'), 300);
 }
 
+// ----------------------------------------------------------- NEAR AI proposals
+
+const AI_OUTCOME = { accepted: 'Accepted', clipped: 'Cut to bound', refused: 'Refused', hold: 'Hold' };
+const short = (a) => (a && a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a || '');
+function aiAmount(raw, venue) {
+  if (raw == null) return '';
+  const v = VENUE[venue];
+  try { return v ? `${units(raw, v.token)} ${v.sym}` : `${BigInt(raw).toLocaleString('en-US')} base units`; } catch { return esc(String(raw)); }
+}
+function renderAI(d) {
+  const rows = d.proposals.map((p) => {
+    const pr = p.proposal || {};
+    const vname = VENUE[pr.venue]?.name || pr.venue || '';
+    const what = pr.action === 'hold' ? 'Hold' : pr.action ? `${pr.action[0].toUpperCase()}${pr.action.slice(1)} ${aiAmount(pr.amount, pr.venue)} to ${vname}` : 'No valid move';
+    const tags = [
+      p.simulated ? '<span class="tag warn">Simulated compromised model</span>' : `<span class="tag">${esc(p.model)}</span>`,
+      p.injected ? '<span class="tag warn">Hostile instruction planted in the data</span>' : '',
+      p.dry ? '<span class="tag">Dry run</span>' : '',
+      `<span class="tag">${new Date(p.at).toISOString().slice(0, 16).replace('T', ' ')} UTC</span>`,
+    ].join('');
+    const res = p.outcome === 'clipped' ? `Policy cut it to ${aiAmount(p.step.amount, p.step.venue)}.`
+      : p.outcome === 'accepted' ? 'Policy accepted it.' : p.outcome === 'hold' ? 'Nothing to sign.' : `Refused because ${esc(p.why[0])}.`;
+    const tx = p.tx ? (p.ok ? ` <a href="${esc(p.tx)}">Signed and executed</a>.` : ` The vault refused it on chain: ${esc(cleanReason(p.reason))}.`) : '';
+    const v = p.evidence?.verify;
+    const ok = v && v.text_matches && v.signer_matches && v.attested_signer;
+    const att = p.evidence?.attestation;
+    const ev = p.simulated ? '<p class="ev">No model was called: this row shows what the policy check does with a hostile answer. Nothing was signed.</p>'
+      : `<p class="ev">${ok ? `Signature checked: the hashes of the request and reply match the signed text, and the signer <code>${esc(short(p.evidence.signing_address))}</code> is the key named in NEAR AI's TEE attestation${att?.models?.[0]?.verified ? ` (model attested via ${esc(att.models[0].provider)})` : ''}.` : 'Signature not verified.'} <a href="/api/ai/evidence?chat_id=${encodeURIComponent(p.chat_id)}">Request, reply and signature</a></p>`;
+    return `<li><div class="top"><span class="pill ${p.outcome === 'hold' ? 'holdai' : esc(p.outcome)}">${AI_OUTCOME[p.outcome] || esc(p.outcome)}</span><span class="t">${esc(what)}</span></div>
+      <div class="tags">${tags}</div>
+      ${pr.reason ? `<p class="q">${esc(pr.reason)}</p>` : ''}
+      <p class="res">${res}${tx}</p>${ev}</li>`;
+  });
+  $('#ai-list').innerHTML = rows.join('') || '<li class="loading">No proposals yet. Run <code>node scripts/run-agent.mjs --ai</code>.</li>';
+}
+
 // ------------------------------------------------------- fund from any chain
 // Live 1Click quotes (NEAR Intents): a token on its own chain in, NEAR USDC out to the vault.
 
@@ -619,6 +655,7 @@ async function refresh() {
   const btn = $('#refresh');
   btn.classList.add('spin');
   const [vault, plan, agent] = await Promise.allSettled([getJSON('/api/vault'), getJSON('/api/plan'), getJSON('/api/agent')]);
+  getJSON('/api/ai').then(renderAI).catch(() => { $('#ai-list').innerHTML = '<li class="loading">Could not read the proposals.</li>'; });
   btn.classList.remove('spin');
   if (vault.status === 'fulfilled') renderVault(state.vault = vault.value);
   else $('#vault-sub').textContent = `Could not read the vault: ${vault.reason.message}`;

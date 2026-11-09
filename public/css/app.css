@@ -290,3 +290,18 @@ svg use{pointer-events:none}
 .fund-out .stat .s{overflow-wrap:break-word}
 .fund-out .err{grid-column:1/-1;margin:0;padding:10px 12px;border:2px solid var(--bad);border-radius:12px;color:var(--bad);font-size:14px}
 @media (max-width:480px){.fund-col,#fund-asset,#fund-amt{width:100%}.fund-row .btn-cta{width:100%}.fund-out{grid-template-columns:repeat(2,minmax(0,1fr))}.fund-out .stat b{font-size:18px}}
+
+/* NEAR AI proposals */
+.ai-list{list-style:none;margin:0;padding:0}
+.ai-list li{padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.ai-list li:last-child{border-bottom:0}
+.ai-list .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ai-list .t{font-weight:600;font-size:14.5px;overflow-wrap:break-word;min-width:0}
+.ai-list .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ai-list .tag{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:2px solid var(--border-strong);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink2)}
+.ai-list .tag.warn{border-color:var(--bad);color:var(--bad)}
+.ai-list .q{margin:6px 0 0;padding-left:10px;border-left:3px solid var(--border-strong);font-size:13.5px;color:var(--ink2);overflow-wrap:break-word}
+.ai-list .res{margin:6px 0 0;font-size:13.5px;overflow-wrap:break-word}
+.ai-list .ev{margin:6px 0 0;font-size:12.5px;color:var(--soft);overflow-wrap:break-word}
+.ai-list .ev a{font-weight:600}
+.pill.clipped{background:var(--cap)} .pill.accepted{background:var(--ok)} .pill.refused{background:var(--bad)} .pill.holdai{background:#475569}

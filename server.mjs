@@ -5,6 +5,8 @@
      /api/plan    the move the agent would make next (read only, nothing is signed)
      /api/agent   moves the agent made, with the policy reasons and transaction links
      /api/scenario?id=  a what-if event run through the same policy and planner (read only)
+     /api/ai            NEAR AI proposals: what the model proposed, what the policy let through, signature checks
+     /api/ai/evidence?chat_id=  the exact request and response bytes a proposal's signature covers
      /api/fund/tokens   origins a vault can be funded from through NEAR Intents (1Click), with prices
      /api/fund/quote?asset=&amount=  a dry 1Click quote: that asset on its own chain -> NEAR USDC to the vault
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
@@ -216,6 +218,19 @@ const server = http.createServer(async (req, res) => {
       if (!id) return send(res, 404, { error: 'not a NEARnest vault' });
       const file = id === (await deployment(NET)).vault ? path.join(DIR, 'demo', `agent-${NET}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
       return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: NET, vault: id, moves: [] })));
+    }
+    if (url.pathname === '/api/ai' || url.pathname === '/api/ai/evidence') {
+      const d = JSON.parse(await readFile(path.join(DIR, 'demo', `ai-${NET}.json`), 'utf8').catch(() => JSON.stringify({ network: NET, proposals: [] })));
+      if (url.pathname === '/api/ai/evidence') {
+        const p = d.proposals.find((x) => x.chat_id && x.chat_id === url.searchParams.get('chat_id'));
+        if (!p) return send(res, 404, { error: 'no proposal with that chat_id' });
+        const e = p.evidence;
+        return send(res, 200, { chat_id: p.chat_id, model: p.model, signed_text: e.hashes, signature: e.signature, signing_address: e.signing_address,
+          how_to_check: 'sha256(request) + ":" + sha256(response) must equal signed_text; recover the EIP-191 signer of signed_text from signature; it must equal signing_address, which GET https://cloud-api.near.ai/v1/attestation/report?model=<model>&signing_algo=ecdsa names in its TEE report.',
+          request: e.request, response: e.response });
+      }
+      const strip = (p) => (p.evidence ? { ...p, evidence: { ...p.evidence, request: undefined, response: undefined } } : p);
+      return send(res, 200, { ...d, proposals: [...d.proposals].reverse().map(strip) });
     }
     if (url.pathname === '/api/fund/tokens') return send(res, 200, await fundTokens());
     if (url.pathname === '/api/fund/quote') {
