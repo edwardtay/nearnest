@@ -299,7 +299,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === '/setup/mainnet') return send(res, 200, await readFile(path.join(DIR, 'scripts', 'setup-mainnet.html')), TYPES['.html']);
       if (url.pathname === '/setup/mainnet.json') {
         const st = JSON.parse(await readFile(path.join(DIR, 'keys', 'mainnet.json'), 'utf8'));
-        return send(res, 200, { owner: st.owner, vault: st.vault, feeder: st.feeder, ...st.preset });
+        return send(res, 200, { owner: st.owner, vault: st.vault, feeder: st.feeder, ...st.preset, factory: st.factoryPreset ? { id: st.factory, ...st.factoryPreset } : null });
       }
       if (url.pathname === '/setup/vault.wasm') {
         return send(res, 200, await readFile(path.join(DIR, 'contract', 'target', 'wasm32-unknown-unknown', 'release', 'nearnest_vault.wasm')), 'application/wasm');

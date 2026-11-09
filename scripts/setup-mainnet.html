@@ -44,6 +44,12 @@
     <p class="msg" id="msg3"></p>
   </div>
   <div class="card">
+    <h2 style="font-size:17px;margin:0 0 8px">Factory: create nearnest.near</h2>
+    <dl id="t4"><dt>Loading</dt><dd>…</dd></dl>
+    <button id="sign4" type="button" disabled>Create nearnest.near</button>
+    <p class="msg" id="msg4"></p>
+  </div>
+  <div class="card">
     <div id="who">Not connected.</div>
     <button id="connect" class="plain" type="button">Connect wallet</button>
     <button id="out" class="plain" type="button" hidden>Disconnect</button>
@@ -68,6 +74,7 @@
     $('#out').hidden = !a;
     const right = a === f.owner;
     $('#sign1').disabled = $('#sign2').disabled = $('#sign3').disabled = !right;
+    $('#sign4').disabled = !right || !f.factory;
     $('#msg').className = 'msg' + (a && !right ? ' bad' : '');
     $('#msg').textContent = a && !right ? `Connect ${f.owner}: only the owner can create ${f.vault}.` : '';
   }
@@ -87,6 +94,13 @@
     $('#sign3').disabled = true; $('#msg3').className = 'msg'; $('#msg3').textContent = 'Waiting for your wallet…';
     try { const r = await send(f.vault, [{ method: 'update_contract', args: wasmBytes, tgas: 300 }]); ok($('#msg3'), `Sent.${link(r)} Then run <code>node scripts/mainnet-setup.mjs</code> to check it.`); }
     catch (e) { bad($('#msg3'), `Not sent: ${e.message || e}`); $('#sign3').disabled = false; }
+  };
+  if (f.factory) $('#t4').innerHTML = `<dt>To</dt><dd><code>near</code> (the registrar for .near names)</dd><dt>Call</dt><dd><code>create_account</code> for <code>${esc(f.factory.id)}</code> with ${near(f.factory.fund_yocto)} NEAR and the key <code>${esc(f.factory.new_public_key)}</code>. The NEAR pays the factory code's storage (it embeds the vault code). Then <code>node scripts/mainnet-factory.mjs</code> deploys the factory.</dd>`;
+  else $('#t4').innerHTML = '<dt>First</dt><dd>Run <code>node scripts/mainnet-factory.mjs</code> once.</dd>';
+  $('#sign4').onclick = async () => {
+    $('#sign4').disabled = true; $('#msg4').className = 'msg'; $('#msg4').textContent = 'Waiting for your wallet…';
+    try { const r = await send('near', [{ method: 'create_account', args: { new_account_id: f.factory.id, new_public_key: f.factory.new_public_key }, deposit: f.factory.fund_yocto, tgas: 100 }]); ok($('#msg4'), `Sent.${link(r)} Now run <code>node scripts/mainnet-factory.mjs</code>.`); }
+    catch (e) { bad($('#msg4'), `Not sent: ${e.message || e}`); $('#sign4').disabled = false; }
   };
   $('#sign2').onclick = async () => {
     $('#sign2').disabled = true; $('#msg2').className = 'msg'; $('#msg2').textContent = 'Waiting for your wallet…';
