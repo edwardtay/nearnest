@@ -1,0 +1,47 @@
+# NEARnest
+
+> A yield agent on NEAR whose key is held to an on-chain policy. A vault contract holds the money; the agent has one function-call key that can only supply to, withdraw from and claim from venues the owner approved, under per-move and per-venue caps, a cooldown and a daily limit. Only the owner can take money out, and only to the owner.
+
+Live page: https://nearnest.web3wagmi.com (opens on the mainnet vault; a header switch shows the testnet demo vault)
+JSON index of every endpoint and contract: https://nearnest.web3wagmi.com/api
+Source: README in the public repository linked from the page
+
+## Read state (HTTP, no keys)
+
+- GET /api/vault?net=mainnet|testnet[&vault=<id>]: live read of a vault: access keys, balances, venues (position, pending, unbonding, caps), policy, owner, risk feeder
+- GET /api/plan?net=...[&vault=<id>]: the move the agent would make next, with the policy's reasons. Read only
+- GET /api/scan: live mainnet yields (Rhea Lend, LiNEAR, rNEAR) judged against exploits and exit liquidity
+- GET /api/agent?net=...: moves the agent made, with transaction links and reasons
+- GET /api/ai: NEAR AI Cloud proposals and how the policy ruled on each; /api/ai/evidence?chat_id= gives the signed request and reply
+- GET /api/scenario?id=<id>&net=...: a what-if event (depeg, exploit, drained pool) run through the same policy; ids from /api/scenarios
+- GET /api/factory?net=...: the factory, its minimum deposit and the vaults it made
+- GET /api/agent-service: heartbeat of the hosted agent (last round, vaults served)
+- GET /api/dare: the mainnet agent key, published on purpose
+
+## Fund a vault from any chain (NEAR Intents)
+
+- GET /api/fund/tokens: origin tokens (ETH, USDC, USDT, SOL, BTC, NEAR on their own chains)
+- GET /api/fund/quote?asset=<assetId>&amount=<decimal>: a free quote into the mainnet vault, in NEAR USDC
+- POST /api/fund/deposit {"asset", "amount", "refund", "vault"}: a one-time deposit address. Send exactly amount_in of the asset on its chain to deposit_address before the deadline. refund is your address on the origin chain. vault is a NEARnest mainnet vault id (default: the demo vault)
+- GET /api/fund/status?address=<deposit_address>: PENDING_DEPOSIT, PROCESSING, SUCCESS (with the NEAR transaction) or REFUNDED
+- Limits per IP: 60 quotes and 60 status checks a minute, 10 deposit addresses an hour
+
+## Own a vault (NEAR contracts, signed by your own NEAR account)
+
+- Create: call create_vault({"name": "<2 to 32 of a-z, 0-9, dashes>"}) on the factory with at least get_min_deposit attached (about 4.2 NEAR on mainnet, almost all of it contract storage). You get <name>.<factory> with you as owner and the agent's key on it. Factory ids: /api
+- Owner methods on your vault: owner_withdraw({"token": "<token id or near>", "amount": "<base units>"}) pays only the owner; guardian_exit({"venue_id", "amount"}) and guardian_claim({"venue_id"}) exit without the agent; pause(), unpause(), remove_agent_key(), add_agent_key({"allowance"}), unblock_venue({"venue_id"}), close() deletes the vault and returns all its NEAR once every venue and token balance is empty
+- Before receiving USDC from owner_withdraw, register your account with the USDC contract: storage_deposit({"account_id": "<you>", "registration_only": true}) with 0.00125 NEAR
+- Views: get_vault(), get_venues()
+- Venue ids: burrow-usdc (Rhea Lend USDC, contract.main.burrow.near) and linear (LiNEAR, linear-protocol.near)
+
+## The agent key
+
+- Function-call key on the vault, limited to agent_supply({"venue_id", "amount"}), agent_withdraw({"venue_id", "amount"}) and agent_claim_unstaked({"venue_id"}), with a 0.25 NEAR gas allowance
+- The mainnet demo vault's agent key is public (GET /api/dare). Anything outside those three methods, any other receiver, and anything past the caps is refused by NEAR or by the contract
+- Visitor vaults use a separate agent key held by the hosted agent
+
+## Limits
+
+- Mainnet caps per vault: Rhea Lend USDC 50 (the risk policy currently lowers it to 25 on chain), 0.5 NEAR in LiNEAR, 20 USDC or 0.5 NEAR per move, 10 minute cooldown, 6 moves a day. Exits skip the rate limits
+- LiNEAR exits take 2 to 3 days to unbond
+- Amounts are integer strings in base units: USDC 6 decimals, NEAR 24

@@ -316,17 +316,17 @@ svg use{pointer-events:none}
 
 #rules{grid-template-columns:max-content minmax(0,1fr)}
 #rules dd{min-width:0;overflow-wrap:break-word}
-.hexid{overflow-wrap:break-word;word-break:break-all}
+.hexid{overflow-wrap:break-word;min-width:0}
 
 /* public agent key */
 .dare{border-color:var(--ink)}
 .keybox{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 12px;padding:10px 12px;border:2px solid var(--border-strong);border-radius:10px;background:#f8fafc}
-.keybox code{font:500 13px var(--mono);overflow-wrap:break-word;word-break:break-all;min-width:0;flex:1 1 280px}
+.keybox code{font:500 13px var(--mono);overflow-wrap:break-word;min-width:0;flex:1 1 280px}
 .dare-pair{margin:0 0 10px}
 .dare h4{margin:0 0 6px;font-size:14px}
 .dare ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink2)}
 .dare li{margin:3px 0;overflow-wrap:break-word}
-#dare-cli{word-break:break-all}
+#dare-cli{overflow-wrap:break-word}
 
 /* live deposit */
 .fund-live{margin:4px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
@@ -336,6 +336,14 @@ svg use{pointer-events:none}
 .dep-box{margin-top:8px;padding:12px;border:2px solid var(--ink);border-radius:12px;background:#fffbeb}
 .dep-box .amt{font:700 20px var(--display)}
 .dep-box .addr{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
-.dep-box .addr code{font:500 14px var(--mono);word-break:break-all;flex:1 1 260px;min-width:0}
+.dep-box .addr code{font:500 14px var(--mono);overflow-wrap:break-word;flex:1 1 260px;min-width:0}
 .dep-box .st{margin:8px 0 0;font-size:14px}
 .dep-box .st b.ok{color:var(--ok)} .dep-box .st b.bad{color:var(--bad)}
+
+/* start here */
+.tiles.start{grid-template-columns:repeat(2,minmax(0,1fr));margin:8px 0 16px}
+a.tile{color:inherit;text-decoration:none;transition:border-color .12s ease,transform .12s ease}
+a.tile:hover{border-color:var(--ink);transform:translateY(-1px)}
+a.tile:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+@media (max-width:700px){.tiles.start{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){a.tile{transition:none}}

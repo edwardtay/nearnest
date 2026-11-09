@@ -69,8 +69,12 @@ async function vaultSnapshot(net, id) {
     view(net, dep.vault, 'get_venues'),
   ]);
   const balances = {};
+  // Whether the owner can receive each token: owner_withdraw of a token fails until the
+  // owner's account is registered with it (NEP-145 storage_deposit).
+  const owner_registered = {};
   for (const t of [...new Set(venues.map((v) => v.venue.token).filter((t) => t !== 'near'))]) {
     balances[t] = await view(net, t, 'ft_balance_of', { account_id: dep.vault }).catch(() => null);
+    owner_registered[t] = !!(await view(net, t, 'storage_balance_of', { account_id: vault.owner }).catch(() => null));
   }
   // Unstaked NEAR is claimable once the staking venue says so.
   for (const v of venues) {
@@ -85,7 +89,7 @@ async function vaultSnapshot(net, id) {
   return {
     network: net, read_at: new Date().toISOString(), deployment: dep,
     access_keys: keys.keys, native_yocto: acct.amount, locked_yocto: acct.locked, code_hash: acct.code_hash, storage_usage: acct.storage_usage,
-    vault, venues, balances, lending,
+    vault, venues, balances, owner_registered, lending,
   };
 }
 
@@ -283,6 +287,34 @@ const server = http.createServer(async (req, res) => {
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(n) || n.length < 2 || n.length > 32) return send(res, 200, { name: n, valid: false });
       const taken = await query(net, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
       return send(res, 200, { name: n, valid: true, free: !taken, account: `${n}.${dep.factory}` });
+    }
+    if (url.pathname === '/api' || url.pathname === '/api/') {
+      const [m, t] = await Promise.all([deployment('mainnet').catch(() => null), deployment('testnet').catch(() => null)]);
+      return send(res, 200, {
+        name: 'NEARnest', guide: '/llms.txt',
+        summary: 'A yield agent on NEAR whose key is held to an on-chain policy. Read state over HTTP; act by signing NEAR transactions with your own account.',
+        deployments: {
+          mainnet: m && { vault: m.vault, owner: m.owner, risk_feeder: m.feeder, factory: m.factory ?? null, agent_key: m.agent_key, venues: { 'burrow-usdc': 'contract.main.burrow.near', linear: 'linear-protocol.near' }, usdc: intents.USDC_CONTRACT },
+          testnet: t && { vault: t.vault, owner: t.owner, risk_feeder: t.feeder, factory: t.factory ?? null, agent_key: t.agent_key },
+        },
+        endpoints: [
+          { method: 'GET', path: '/api/vault', query: { net: 'mainnet|testnet', vault: 'optional vault id' }, returns: 'keys, balances, venues, policy' },
+          { method: 'GET', path: '/api/plan', query: { net: 'mainnet|testnet', vault: 'optional' }, returns: 'next moves with reasons' },
+          { method: 'GET', path: '/api/scan', returns: 'mainnet venues judged by the policy' },
+          { method: 'GET', path: '/api/agent', query: { net: 'mainnet|testnet', vault: 'optional' }, returns: 'moves made, with transactions' },
+          { method: 'GET', path: '/api/ai', returns: 'NEAR AI proposals and verdicts' },
+          { method: 'GET', path: '/api/ai/evidence', query: { chat_id: 'from /api/ai' }, returns: 'signed request and reply' },
+          { method: 'GET', path: '/api/scenarios', returns: 'what-if ids' },
+          { method: 'GET', path: '/api/scenario', query: { id: 'scenario id', net: 'mainnet|testnet' }, returns: 'verdicts and plans before and after' },
+          { method: 'GET', path: '/api/factory', query: { net: 'mainnet|testnet' }, returns: 'factory, min deposit, vaults' },
+          { method: 'GET', path: '/api/agent-service', returns: 'hosted agent heartbeat' },
+          { method: 'GET', path: '/api/dare', returns: 'the published mainnet agent key' },
+          { method: 'GET', path: '/api/fund/tokens', returns: 'origin tokens for deposits' },
+          { method: 'GET', path: '/api/fund/quote', query: { asset: 'assetId', amount: 'decimal' }, returns: 'free quote into the mainnet vault', limit: '60/min per IP' },
+          { method: 'POST', path: '/api/fund/deposit', body: { asset: 'assetId', amount: 'decimal', refund: 'origin-chain address', vault: 'optional mainnet vault id' }, returns: 'one-time deposit address', limit: '10/hour per IP' },
+          { method: 'GET', path: '/api/fund/status', query: { address: 'deposit address' }, returns: 'deposit progress', limit: '60/min per IP' },
+        ],
+      });
     }
     if (url.pathname === '/api/agent-service') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-service.json')).catch(() => '{"started_at":null}'));
     if (url.pathname === '/api/dare') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-key-mainnet.json')).catch(() => '{}'));

@@ -1,0 +1,91 @@
+{
+  "ran_at": "2026-11-09T03:54:36.248Z",
+  "stranger": "stranger-mw8q7lf6.testnet",
+  "vault": "qa8q7rje.nearnest-factory-mvzmesjc.testnet",
+  "results": [
+    {
+      "name": "stranger account from the faucet",
+      "pass": true,
+      "detail": "stranger-mw8q7lf6.testnet",
+      "tx": null
+    },
+    {
+      "name": "create_vault through the factory",
+      "pass": true,
+      "detail": "qa8q7rje.nearnest-factory-mvzmesjc.testnet",
+      "tx": "https://testnet.nearblocks.io/txns/AttiRMj4QHW2zQvAQb2Q6SJrrwjJB8yRxKskN2L8HnNc"
+    },
+    {
+      "name": "the stranger owns the vault",
+      "pass": true,
+      "detail": "",
+      "tx": null
+    },
+    {
+      "name": "only the agent key, no full-access key",
+      "pass": true,
+      "detail": "",
+      "tx": null
+    },
+    {
+      "name": "vault runs the current vault code",
+      "pass": true,
+      "detail": "5Z5N3SyP6HzqucaFuizUzDvdcDsDGr6x9YwUSzeKZ4HM",
+      "tx": null
+    },
+    {
+      "name": "fund: 50 test USDC into the vault",
+      "pass": true,
+      "detail": "",
+      "tx": "https://testnet.nearblocks.io/txns/GWrNf1UDdWcRuZJaoyPcA8f5tcyz1cDgUtprkV4FdPH1"
+    },
+    {
+      "name": "agent moves money for the stranger",
+      "pass": true,
+      "detail": "done  tighten burrow-usdc  https://testnet.nearblocks.io/txns/4cQ1K4VH2asbmCrNJ9",
+      "tx": null
+    },
+    {
+      "name": "position recorded",
+      "pass": true,
+      "detail": "20 USDC in Burrow",
+      "tx": null
+    },
+    {
+      "name": "owner exits Burrow without the agent",
+      "pass": true,
+      "detail": "",
+      "tx": "https://testnet.nearblocks.io/txns/B4zy1ixkAPbsHmnYyYnP9TvJjUWTZTR3W3Dm8ApqLCFq"
+    },
+    {
+      "name": "owner registered with USDC before withdrawing",
+      "pass": true,
+      "detail": "not registered: the page must offer registration first",
+      "tx": null
+    },
+    {
+      "name": "register owner with USDC",
+      "pass": true,
+      "detail": "",
+      "tx": "https://testnet.nearblocks.io/txns/F4bNSmJS4aj5J3rtBfNgrQdyTaH8fhF47US2V4Nt22YA"
+    },
+    {
+      "name": "owner_withdraw all USDC",
+      "pass": true,
+      "detail": "50 USDC",
+      "tx": "https://testnet.nearblocks.io/txns/FE8oWMaz4W9MA44p3S9BGGBTNqj7WzKTFkxaL1E9Q1HV"
+    },
+    {
+      "name": "close the vault",
+      "pass": true,
+      "detail": "",
+      "tx": "https://testnet.nearblocks.io/txns/E2WKQDpSKM8P3jDgZhUpGTg3EtQTTNCULjAFGfv9Myf8"
+    },
+    {
+      "name": "vault deleted and NEAR returned",
+      "pass": true,
+      "detail": "5.046 NEAR back",
+      "tx": null
+    }
+  ]
+}

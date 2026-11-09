@@ -7,6 +7,8 @@
 <meta name="description" content="A NEAR yield agent held to an on-chain policy: live yields judged against exploits and exit liquidity, and a vault that holds the agent key to on-chain limits." />
 <meta name="author" content="Edward Tay" />
 <link rel="canonical" href="https://nearnest.web3wagmi.com/" />
+<link rel="alternate" type="text/plain" href="/llms.txt" title="NEARnest guide for AI agents" />
+<link rel="alternate" type="application/json" href="/api" title="NEARnest API index" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="web3wagmi" />
 <meta property="og:title" content="NEARnest: a yield agent held to an on-chain policy" />
@@ -115,6 +117,30 @@
       <div class="view-head">
         <h2 id="h-overview">Overview</h2>
         <p class="sub">The agent reads live yields, judges each venue against exploits and exit liquidity, and moves funds through a vault that only lets it do what the owner approved.</p>
+      </div>
+
+      <h3 class="sec-title">How to use NEARnest</h3>
+      <div class="tiles start">
+        <a class="tile" href="#vault">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16c3.4-5.6 7.8-8.5 13-8.5S25.6 10.4 29 16c-3.4 5.6-7.8 8.5-13 8.5S6.4 21.6 3 16z" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round"/><circle cx="16" cy="16" r="4.2" fill="none" stroke="#b45309" stroke-width="2.4"/><circle cx="16" cy="16" r="1.4" fill="#b45309"/></svg>
+          <h3>Watch the vault</h3>
+          <p>A live mainnet vault. The agent moves its money only within rules the contract enforces.</p>
+        </a>
+        <a class="tile" href="#overview" data-go="dare">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="10" cy="16" r="6" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M16 16h12M23.5 16v4M27 16v3" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/><path d="M7.5 13.5l5 5M12.5 13.5l-5 5" stroke="#b91c1c" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <h3>Try to take the money</h3>
+          <p>The agent's private key is public. Use it and see what the chain refuses.</p>
+        </a>
+        <a class="tile" href="#mine">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="13" cy="13.5" rx="4.6" ry="5.6" fill="none" stroke="#b45309" stroke-width="2.4"/><path d="M3.5 17.5c1.8 5.5 5.4 7.8 9.5 7.8s7.7-2.3 9.5-7.8" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/><path d="M26 6v8M22 10h8" stroke="#15803d" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <h3>Make your own vault</h3>
+          <p>You own it, fund it from any chain, and the agent runs it every 30 minutes.</p>
+        </a>
+        <a class="tile" href="/llms.txt">
+          <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M11 6c-3 0-4 1.5-4 4v3c0 1.8-1 3-3 3 2 0 3 1.2 3 3v3c0 2.5 1 4 4 4M21 6c3 0 4 1.5 4 4v3c0 1.8 1 3 3 3-2 0-3 1.2-3 3v3c0 2.5-1 4-4 4" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12.5" cy="16" r="1.6" fill="#b45309"/><circle cx="19.5" cy="16" r="1.6" fill="#b45309"/></svg>
+          <h3>Use it from an agent</h3>
+          <p>A plain-text guide at /llms.txt and a JSON index at /api list every call.</p>
+        </a>
       </div>
 
       <div class="hero">

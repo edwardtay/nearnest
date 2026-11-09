@@ -422,7 +422,10 @@ async function renderMine() {
     { id: 'near', t: `Send ${NETWORK === 'mainnet' ? '0.5' : '1'} NEAR`, s: 'For the agent to stake in LiNEAR', ok: true },
     ...snap.venues.filter((x) => BigInt(x.position) > 0n).map((x) => ({ id: `exit:${x.id}`, t: `Exit ${VENUE[x.id]?.name || x.id}`, s: x.venue.kind === 'LiquidStake' ? 'Unstake; LiNEAR takes 2 to 3 days to release' : 'Withdraw it all back into the vault', ok: true })),
     ...snap.venues.filter((x) => BigInt(x.unbonding ?? 0) > 0n).map((x) => ({ id: `claim:${x.id}`, t: `Claim unstaked NEAR`, s: x.claimable ? 'Ready to claim' : 'Still unbonding', ok: !!x.claimable })),
-    { id: 'withdraw', t: `Withdraw ${units(idleUsdc, 'usdc')} USDC to me`, s: 'owner_withdraw: idle USDC to your account', ok: idleUsdc > 0n },
+    ...(idleUsdc > 0n && snap.owner_registered?.[usdcT] === false
+      ? [{ id: 'register', t: 'Register for USDC', s: 'Your account must hold a USDC registration (0.00125 NEAR) before it can receive USDC', ok: true }]
+      : []),
+    { id: 'withdraw', t: `Withdraw ${units(idleUsdc, 'usdc')} USDC to me`, s: snap.owner_registered?.[usdcT] === false ? 'Register for USDC first' : 'owner_withdraw: idle USDC to your account', ok: idleUsdc > 0n && snap.owner_registered?.[usdcT] !== false },
     snap.vault.paused ? { id: 'unpause', t: 'Unpause', s: 'Supply moves resume', ok: true } : { id: 'pause', t: 'Pause', s: 'Stops supply; exits still work', ok: true, warn: true },
     agentKey ? { id: 'rmkey', t: 'Remove the agent key', s: 'The agent can no longer sign for this vault', ok: true, warn: true } : { id: 'addkey', t: 'Restore the agent key', s: 'Function-call key, 0.5 NEAR gas allowance', ok: true },
     ...snap.venues.filter((x) => x.venue.blocked_reason).map((x) => ({ id: `unblock:${x.id}`, t: `Unblock ${VENUE[x.id]?.name || x.id}`, s: 'Only the owner can reopen a venue', ok: true })),
@@ -458,6 +461,7 @@ async function act(id) {
     withdraw: () => w.send(v, [{ method: 'owner_withdraw', args: { token: mine.usdc, amount: String(mine.snap.balances[mine.usdc]) }, tgas: 50 }]),
     withdrawnear: () => w.send(v, [{ method: 'owner_withdraw', args: { token: 'near', amount: String(BigInt(mine.snap.native_yocto) - BigInt(mine.snap.storage_usage) * 10n ** 19n - 5n * 10n ** 23n) }, tgas: 50 }]),
     close: () => w.send(v, [{ method: 'close', tgas: 100 }]),
+    register: () => w.send(mine.usdc, [{ method: 'storage_deposit', args: { account_id: mine.account, registration_only: true }, deposit: '1250000000000000000000', tgas: 30 }]),
     fund: () => { $('#fund').scrollIntoView({ behavior: 'smooth' }); return null; },
     pause: () => w.send(v, [{ method: 'pause', tgas: 30 }]),
     unpause: () => w.send(v, [{ method: 'unpause', tgas: 30 }]),
@@ -817,6 +821,14 @@ function setNetwork(n) {
   renderFeed();
   renderDare();
 }
+// "Try to take the money" tile: the public key lives on the mainnet view.
+document.querySelector('[data-go="dare"]').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (NETWORK !== 'mainnet') setNetwork('mainnet');
+  await renderDare();
+  location.hash = '#overview';
+  setTimeout(() => $('#dare').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+});
 document.querySelectorAll('#net-switch button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.net !== NETWORK) setNetwork(b.dataset.net); }));
 document.querySelectorAll('#net-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.net === NETWORK)));
 document.body.dataset.net = NETWORK;

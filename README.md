@@ -20,6 +20,10 @@ The page opens on the **mainnet vault** (real USDC and NEAR, owned by `web3wagmi
 
 To repeat steps 3 to 5 yourself you need the testnet keys, which stay local. Set up your own vault with the commands under [Run it](#run-it).
 
+**For AI agents:** [`/llms.txt`](https://nearnest.web3wagmi.com/llms.txt) explains what NEARnest is, which contract methods to call and which HTTP endpoints to read; [`/api`](https://nearnest.web3wagmi.com/api) is the same as JSON, with the live deployment ids.
+
+**Visitor QA:** `node scripts/qa-visitor.mjs` plays a stranger on testnet with the exact transactions the page sends: a fresh account creates a vault through the factory, funds it, the agent moves money for it, then the owner exits, withdraws and closes and gets the NEAR back. Last run: 14 of 14 passed ([`demo/qa-visitor-testnet.json`](demo/qa-visitor-testnet.json)). It found that an owner must register with the USDC contract before `owner_withdraw` can pay them, so My vault now offers **Register for USDC** first.
+
 ## How it works
 
 ```
