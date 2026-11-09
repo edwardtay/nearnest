@@ -502,7 +502,7 @@ function loadFund() {
     if (base) $('#fund-asset').value = base.assetId;
     $('#fund-note').innerHTML = info.stand_in
       ? `NEAR Intents runs on mainnet only, and this vault is on testnet. Quotes are live mainnet prices, routed to the stand-in account <code>${acct(info.recipient)}</code> until the mainnet vault is live. They are dry: no deposit address is made and nothing can be sent. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>.`
-      : `Quotes route to the mainnet NEARnest vault <code>${acct(info.recipient)}</code>, owned by <code>web3wagmi.near</code>. They are dry here: no deposit address is made. A real deposit runs with <code>scripts/fund-intents.mjs --live</code>, which gives a one-time deposit address.`;
+      : `Deposits go to the mainnet NEARnest vault <code>${acct(info.recipient)}</code>, owned by <code>web3wagmi.near</code>. Quotes are free; a deposit address is made only when you ask for one.`;
     fundUsd();
   }).catch((e) => { fund.loading = null; $('#fund-note').textContent = `Could not read the 1Click token list: ${e.message}`; });
   return fund.loading;
@@ -533,6 +533,11 @@ async function fundQuote() {
       <div class="stat"><span class="k">Vault receives</span><b>${num(q.amountOutFormatted, 2)} USDC</b><span class="s">at least ${num(Number(q.minAmountOut) / 1e6, 2)} after 1% slippage</span></div>
       <div class="stat"><span class="k">Cost of the route</span><b>${pct(Math.max(0, 1 - kept))}</b><span class="s">${usd(Math.max(0, q.amountInUsd - q.amountOutUsd))} on this amount</span></div>
       <div class="stat"><span class="k">Time to settle</span><b>${num(q.timeEstimate, 0)} s</b><span class="s">after the deposit confirms on ${esc(t.chain)}</span></div>`;
+    if (!j.stand_in) {
+      $('#fund-live').hidden = false;
+      $('#fund-refund-l').textContent = `Your ${t.chain} address for refunds`;
+      $('#fund-refund').placeholder = t.chain === 'Solana' ? 'Solana address' : t.chain === 'Tron' ? 'T…' : t.chain === 'Bitcoin' ? 'bc1…' : t.chain === 'NEAR' ? 'you.near' : '0x…';
+    }
   } catch (e) {
     out.hidden = false; out.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   } finally { btn.disabled = false; btn.textContent = 'Get a live quote'; }
@@ -542,6 +547,49 @@ $('#fund-asset').addEventListener('change', () => { const t = fundToken(); if (t
 $('#fund-amt').addEventListener('input', fundUsd);
 $('#fund-amt').addEventListener('keydown', (e) => { if (e.key === 'Enter') fundQuote(); });
 $('#fund-go').addEventListener('click', fundQuote);
+
+// Live deposit: a one-time 1Click address into the mainnet vault, then its progress.
+let depTimer = null;
+const DEP_TEXT = { PENDING_DEPOSIT: 'Waiting for your deposit', KNOWN_DEPOSIT_TX: 'Deposit seen on the origin chain', PROCESSING: 'Swapping inside NEAR Intents',
+  SUCCESS: 'Delivered to the vault', INCOMPLETE_DEPOSIT: 'Deposit smaller than quoted', REFUNDED: 'Refunded to your address', FAILED: 'Failed' };
+async function fundDeposit() {
+  const t = fundToken(); if (!t) return;
+  const btn = $('#fund-dep'); const box = $('#dep-box');
+  btn.disabled = true; btn.textContent = 'Getting an address…';
+  try {
+    const r = await fetch('/api/fund/deposit', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ asset: t.assetId, amount: $('#fund-amt').value.trim(), refund: $('#fund-refund').value.trim(), vault: fund.info?.recipient }) });
+    const d = await r.json();
+    box.hidden = false;
+    if (!r.ok) { box.innerHTML = `<p class="err">${esc(d.error || `Failed (${r.status})`)}</p>`; return; }
+    const until = new Date(d.deadline);
+    box.innerHTML = `<div>Send exactly</div><div class="amt">${esc(d.amount_in)} ${esc(t.symbol)} on ${esc(t.chain)}</div>
+      <div class="addr"><code>${esc(d.deposit_address)}</code><button class="btn-cmd" type="button" id="dep-copy">Copy address</button></div>
+      ${d.deposit_memo ? `<div>Memo: <code>${esc(d.deposit_memo)}</code> (required)</div>` : ''}
+      <div>The vault receives about <b>${num(d.amount_out, 4)} USDC</b>, at least ${num(d.min_out, 4)}. Send before ${until.toISOString().slice(11, 16)} UTC. A different amount is swapped or refunded by 1Click.</div>
+      <p class="st" id="dep-st">Checking…</p>`;
+    $('#dep-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(d.deposit_address); toast('Address copied'); } catch { toast('Copy failed'); } });
+    pollDeposit(d.deposit_address, until);
+  } catch (e) { box.hidden = false; box.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+  finally { btn.disabled = false; btn.textContent = 'Get deposit address'; }
+}
+function pollDeposit(address, until) {
+  clearTimeout(depTimer);
+  const tick = async () => {
+    const el = $('#dep-st'); if (!el) return;
+    try {
+      const s = await getJSON(`/api/fund/status?address=${encodeURIComponent(address)}`);
+      const done = ['SUCCESS', 'REFUNDED', 'FAILED'].includes(s.status);
+      const cls = s.status === 'SUCCESS' ? 'ok' : done ? 'bad' : '';
+      el.innerHTML = `<b class="${cls}">${esc(DEP_TEXT[s.status] || s.status)}</b>${s.deposited ? `, deposited ${esc(s.deposited)}` : ''}${s.amount_out && s.status === 'SUCCESS' ? `, vault received ${esc(s.amount_out)} USDC` : ''}${Number(s.refunded) > 0 ? `, refunded ${esc(s.refunded)}` : ''}.${s.near_tx ? ` <a href="${esc(s.near_tx)}">NEAR transaction</a>` : ''}${s.status === 'SUCCESS' ? ' The agent supplies it on its next round.' : ''}`;
+      if (done) return;
+    } catch { el.textContent = 'Could not read the status; retrying.'; }
+    // Poll every 10 s until settled, or 30 min past the deadline.
+    if (Date.now() < until.getTime() + 30 * 60_000) depTimer = setTimeout(tick, 10_000);
+  };
+  tick();
+}
+$('#fund-dep').addEventListener('click', fundDeposit);
 
 // ------------------------------------------------------------------ what if
 

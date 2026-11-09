@@ -10,6 +10,9 @@
      /api/dare          the mainnet agent key, published on purpose: take the money if you can
      /api/fund/tokens   origins a vault can be funded from through NEAR Intents (1Click), with prices
      /api/fund/quote?asset=&amount=  a dry 1Click quote: that asset on its own chain -> NEAR USDC to the vault
+     POST /api/fund/deposit {asset, amount, refund, vault}  a live quote: a one-time deposit address into a NEARnest mainnet vault
+     /api/fund/status?address=  progress of a deposit this server issued (cached 5 s)
+     1Click endpoints are limited per IP: 60 quotes and 60 status checks a minute, 10 deposit addresses an hour.
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -127,6 +130,68 @@ async function nextPlan(net, id) {
   const steps = planMoves(report, snap.venues, idle, undefined, 'policy', snap.vault).map(stepJSON);
   return { network: net, read_at: snap.read_at, scan_at: report.generated_at, cooldown_ms: cooldownLeft(snap.vault),
     idle: Object.fromEntries(Object.entries(idle).map(([k, v]) => [k, String(v)])), steps };
+}
+
+/* Per-IP limits for the endpoints that call 1Click, so the box only ever forwards small,
+   bounded traffic. In memory: they reset with the process, which is fine for this. */
+const hits = new Map();
+function limited(req, bucket, max, windowMs) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const key = `${bucket}:${ip}`;
+  const now = Date.now();
+  const h = (hits.get(key) || []).filter((t) => now - t < windowMs);
+  if (h.length >= max) { hits.set(key, h); return true; }
+  h.push(now);
+  hits.set(key, h);
+  if (hits.size > 5000) for (const [k, v] of hits) if (!v.some((t) => now - t < 3_600_000)) hits.delete(k);
+  return false;
+}
+
+/** Mainnet vaults a deposit may go to: the deployed vault (and, later, vaults the mainnet factory made). */
+async function depositVault(asked) {
+  const dep = await deployment('mainnet').catch(() => null);
+  if (!dep) return null;
+  if (!asked || asked === dep.vault) return dep.vault;
+  if (dep.factory && asked.endsWith(`.${dep.factory}`) && /^[a-z0-9-]{2,32}$/.test(asked.slice(0, -dep.factory.length - 1))) return asked;
+  return null;
+}
+
+// Deposit addresses this server handed out, so status lookups stay ours (bounded).
+const issued = new Map();
+
+async function fundDeposit(body) {
+  const { tokens } = await fundTokens();
+  const t = tokens.find((x) => x.assetId === body.asset);
+  if (!t) return { status: 400, body: { error: 'unknown origin asset' } };
+  const vault = await depositVault(body.vault);
+  if (!vault) return { status: 400, body: { error: 'not a NEARnest mainnet vault' } };
+  const refund = String(body.refund || '').trim();
+  if (!intents.refundAddressOk(t.chain, refund)) return { status: 400, body: { error: `that is not a ${t.chain} address; refunds go back to it if the swap cannot complete` } };
+  let raw;
+  try { raw = intents.toBaseUnits(body.amount, t.decimals); } catch (e) { return { status: 400, body: { error: e.message } }; }
+  const ready = await cached(`ready-${vault}`, 600_000, () => intents.recipientReady(vault));
+  if (!ready.ok) return { status: 400, body: { error: ready.reason } };
+  try {
+    const q = await intents.quote({ originAsset: t.assetId, amount: raw, recipient: vault, dry: false, refundTo: refund });
+    const out = { origin: t, vault, refund, deposit_address: q.quote.depositAddress, deposit_memo: q.quote.depositMemo ?? null,
+      amount_in: q.quote.amountInFormatted, amount_in_usd: q.quote.amountInUsd, amount_out: q.quote.amountOutFormatted,
+      min_out: (Number(q.quote.minAmountOut) / 1e6).toString(), time_estimate_s: q.quote.timeEstimate, deadline: q.request.deadline };
+    issued.set(out.deposit_address, { at: Date.now(), vault });
+    if (issued.size > 1000) issued.delete(issued.keys().next().value);
+    return { status: 200, body: out };
+  } catch (e) {
+    return { status: 400, body: { error: String(e.message || e).slice(0, 300) } };
+  }
+}
+
+async function fundStatus(address) {
+  if (!issued.has(address)) return { status: 404, body: { error: 'unknown deposit address' } };
+  const st = await cached(`status-${address}`, 5_000, () => intents.status(address));
+  const d = st.swapDetails || {};
+  const link = (h, base) => (h?.explorerUrl || (h?.hash ? `${base}${h.hash}` : null));
+  const nearTx = d.destinationChainTxHashes?.find((h) => !String(h.hash).startsWith('0x'));
+  return { status: 200, body: { status: st.status, deposited: d.depositedAmountFormatted ?? null, amount_out: d.amountOutFormatted ?? null,
+    refunded: d.refundedAmountFormatted ?? null, near_tx: link(nearTx, 'https://nearblocks.io/txns/'), origin_tx_hash: d.originChainTxHashes?.[0]?.hash ?? null } };
 }
 
 /** Where Intents deliveries go: the mainnet vault once deployed, else a stand-in mainnet account (dry quotes only). */
@@ -262,7 +327,22 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/fund/tokens') return send(res, 200, await fundTokens());
     if (url.pathname === '/api/fund/quote') {
+      if (limited(req, 'q', 60, 60_000)) return send(res, 429, { error: 'too many quotes; try again in a minute' });
       const r = await fundQuote(url.searchParams.get('asset') || '', url.searchParams.get('amount') || '');
+      return send(res, r.status, r.body);
+    }
+    if (url.pathname === '/api/fund/deposit' && req.method === 'POST') {
+      if (limited(req, 'd', 10, 3_600_000)) return send(res, 429, { error: 'too many deposit addresses from this address; try again later' });
+      let raw = '';
+      for await (const c of req) { raw += c; if (raw.length > 2_000) return send(res, 413, { error: 'too large' }); }
+      let body;
+      try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'bad JSON' }); }
+      const r = await fundDeposit(body);
+      return send(res, r.status, r.body);
+    }
+    if (url.pathname === '/api/fund/status') {
+      if (limited(req, 's', 60, 60_000)) return send(res, 429, { error: 'too many status checks' });
+      const r = await fundStatus(url.searchParams.get('address') || '');
       return send(res, r.status, r.body);
     }
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });

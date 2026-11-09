@@ -327,3 +327,15 @@ svg use{pointer-events:none}
 .dare ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink2)}
 .dare li{margin:3px 0;overflow-wrap:break-word}
 #dare-cli{word-break:break-all}
+
+/* live deposit */
+.fund-live{margin:4px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+.fund-live h4{margin:0 0 6px;font-size:15px}
+.fund-col.grow{flex:1 1 320px}
+.inp.wide{width:100%;font-size:14px}
+.dep-box{margin-top:8px;padding:12px;border:2px solid var(--ink);border-radius:12px;background:#fffbeb}
+.dep-box .amt{font:700 20px var(--display)}
+.dep-box .addr{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+.dep-box .addr code{font:500 14px var(--mono);word-break:break-all;flex:1 1 260px;min-width:0}
+.dep-box .st{margin:8px 0 0;font-size:14px}
+.dep-box .st b.ok{color:var(--ok)} .dep-box .st b.bad{color:var(--bad)}

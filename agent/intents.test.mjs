@@ -30,3 +30,15 @@ test('live quote needs an origin-chain refund address', () => {
   assert.equal(b.refundType, 'ORIGIN_CHAIN');
   assert.equal(b.refundTo, '0xabc');
 });
+
+import { refundAddressOk } from './intents.mjs';
+test('refund addresses are checked against the origin chain format', () => {
+  assert.ok(refundAddressOk('Base', '0x437b66b5f265fdf2527f9bba3b1efc492cc362e3'));
+  assert.ok(!refundAddressOk('Base', '0x437b66'));
+  assert.ok(!refundAddressOk('Solana', '0x437b66b5f265fdf2527f9bba3b1efc492cc362e3'));
+  assert.ok(refundAddressOk('Solana', '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'));
+  assert.ok(refundAddressOk('Tron', 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'));
+  assert.ok(refundAddressOk('NEAR', 'web3wagmi.near'));
+  assert.ok(refundAddressOk('Bitcoin', 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'));
+  assert.ok(!refundAddressOk('Dogecoin', 'anything'));
+});

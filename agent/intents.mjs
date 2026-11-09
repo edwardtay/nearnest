@@ -31,6 +31,19 @@ export const ORIGINS = [
   ['nep141:wrap.near', 'NEAR'],
 ];
 
+/** A refund address in the origin chain's own format. 1Click checks again; this catches typos early. */
+const REFUND_FORMAT = {
+  Ethereum: /^0x[0-9a-fA-F]{40}$/, Base: /^0x[0-9a-fA-F]{40}$/, Arbitrum: /^0x[0-9a-fA-F]{40}$/,
+  Solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+  Tron: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
+  Bitcoin: /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/,
+  NEAR: /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/,
+};
+export function refundAddressOk(chain, addr) {
+  const re = REFUND_FORMAT[chain];
+  return !!re && typeof addr === 'string' && addr.length <= 100 && re.test(addr.trim());
+}
+
 /** "0.01" with 18 decimals -> "10000000000000000". Rejects anything that is not a plain positive decimal. */
 export function toBaseUnits(amount, decimals) {
   const s = String(amount).trim();

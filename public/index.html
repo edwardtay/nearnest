@@ -221,6 +221,15 @@
         </div>
         <p class="hint" id="fund-usd"></p>
         <div class="fund-out" id="fund-out" hidden></div>
+        <div class="fund-live" id="fund-live" hidden>
+          <h4>Deposit for real</h4>
+          <div class="fund-row">
+            <div class="fund-col grow"><label class="field" for="fund-refund" id="fund-refund-l">Your address for refunds</label><input id="fund-refund" class="inp wide" autocomplete="off" spellcheck="false"></div>
+            <button class="btn-cta" id="fund-dep" type="button">Get deposit address</button>
+          </div>
+          <p class="hint" id="fund-dep-hint">If the swap cannot complete, the funds go back to this address.</p>
+          <div class="dep-box" id="dep-box" hidden></div>
+        </div>
         <p class="foot" id="fund-note"></p>
       </div>
 
