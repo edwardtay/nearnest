@@ -2,7 +2,6 @@
 // wallet, sign out, and send function calls or NEAR. Keys stay in the wallet.
 import { setupWalletSelector } from '@near-wallet-selector/core';
 import { setupModal } from '@near-wallet-selector/modal-ui';
-import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 import { setupMeteorWallet } from '@near-wallet-selector/meteor-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
 
@@ -14,9 +13,9 @@ const current = () => selector?.store.getState().accounts.find((a) => a.active)?
 export async function init(network) {
   selector = await setupWalletSelector({
     network,
-    modules: [setupMyNearWallet(), setupMeteorWallet(), setupIntearWallet()],
+    modules: [setupMeteorWallet(), setupIntearWallet()],
   });
-  modal = setupModal(selector, { description: 'Connect a NEAR testnet wallet to create and manage your own NEARnest vault.' });
+  modal = setupModal(selector, { description: network === 'mainnet' ? 'Connect the NEAR account that will own the mainnet vault.' : 'Connect a NEAR testnet wallet to create and manage your own NEARnest vault.' });
   selector.store.observable.subscribe(() => listeners.forEach((f) => f(current())));
   return current();
 }
@@ -30,11 +29,12 @@ export async function signOut() {
 }
 
 const TGAS = 10n ** 12n;
-/** One transaction to receiverId: function calls and/or a NEAR transfer. Amounts are yocto strings. */
+/** One transaction to receiverId: function calls, a NEAR transfer, or (mainnet setup) CreateAccount and a full-access AddKey. Amounts are yocto strings. */
 export async function send(receiverId, calls) {
   const w = await selector.wallet();
-  const actions = calls.map((c) => (c.transfer
-    ? { type: 'Transfer', params: { deposit: String(c.transfer) } }
+  const actions = calls.map((c) => (c.createAccount ? { type: 'CreateAccount' }
+    : c.addFullKey ? { type: 'AddKey', params: { publicKey: c.addFullKey, accessKey: { permission: 'FullAccess' } } }
+    : c.transfer ? { type: 'Transfer', params: { deposit: String(c.transfer) } }
     : { type: 'FunctionCall', params: { methodName: c.method, args: c.args || {}, gas: String(BigInt(c.tgas || 100) * TGAS), deposit: String(c.deposit || '0') } }));
   return w.signAndSendTransaction({ receiverId, actions });
 }

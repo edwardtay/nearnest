@@ -44,7 +44,7 @@ const AI_KEY = AI ? fs.readFileSync(path.join(ROOT, 'keys', 'near-ai.txt'), 'utf
 const LOOP = args.includes('--loop');
 const SC = args.includes('--scenario') ? scenario(args[args.indexOf('--scenario') + 1]) : null;
 if (args.includes('--scenario') && !SC) { console.error(`unknown scenario; one of: ${SCENARIOS.map((x) => x.id).join(', ')}`); process.exit(1); }
-const DECIMALS = { 'usdc.fakes.testnet': 6, near: 24 };
+const DECIMALS = { 'usdc.fakes.testnet': 6, '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1': 6, near: 24 };
 
 const s = loadState(net);
 // --vault <id>: any vault whose agent key is ours (the demo vault, or one a visitor made

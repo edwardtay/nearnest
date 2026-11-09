@@ -219,6 +219,17 @@ const server = http.createServer(async (req, res) => {
       const file = id === (await deployment(NET)).vault ? path.join(DIR, 'demo', `agent-${NET}.json`) : path.join(DIR, 'demo', 'vaults', `${id}.json`);
       return send(res, 200, await readFile(file).catch(() => JSON.stringify({ network: NET, vault: id, moves: [] })));
     }
+    // Mainnet setup signing page: only with NEARNEST_SETUP=1 and only on localhost. Never in production.
+    if (url.pathname.startsWith('/setup/')) {
+      const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host || '');
+      if (process.env.NEARNEST_SETUP !== '1' || !local) return send(res, 404, 'Not found', 'text/plain');
+      if (url.pathname === '/setup/mainnet') return send(res, 200, await readFile(path.join(DIR, 'scripts', 'setup-mainnet.html')), TYPES['.html']);
+      if (url.pathname === '/setup/mainnet.json') {
+        const st = JSON.parse(await readFile(path.join(DIR, 'keys', 'mainnet.json'), 'utf8'));
+        return send(res, 200, { owner: st.owner, vault: st.vault, temp_public: st.temp.public, fund_near: '4.6', fund_yocto: (46n * 10n ** 23n).toString() });
+      }
+      return send(res, 404, 'Not found', 'text/plain');
+    }
     if (url.pathname === '/api/ai' || url.pathname === '/api/ai/evidence') {
       const d = JSON.parse(await readFile(path.join(DIR, 'demo', `ai-${NET}.json`), 'utf8').catch(() => JSON.stringify({ network: NET, proposals: [] })));
       if (url.pathname === '/api/ai/evidence') {
