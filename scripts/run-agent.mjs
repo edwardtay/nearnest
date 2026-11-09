@@ -199,8 +199,9 @@ async function runOnce() {
       for (const p of steps) console.log(`  ${fmtStep(p)}`);
       let next = steps.find((p) => p.kind !== 'hold');
       let aiRec = null;
-      // --ai: the model proposes whenever the policy's next step would be a supply or nothing.
-      if (AI && (!next || next.kind === 'supply') && (DRY || cooldownLeft(vault) === 0)) {
+      // --ai: the model proposes when the policy's next step is a supply. With nothing to do,
+      // no model is called, so idle rounds spend no NEAR AI credits.
+      if (AI && next?.kind === 'supply' && (DRY || cooldownLeft(vault) === 0)) {
         const { check, record } = await aiPropose(report, planned);
         aiRec = record;
         if (record) aiLog.push(record);
