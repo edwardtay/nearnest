@@ -39,4 +39,5 @@ The vault account has no full-access key. Its code changes only through the owne
 - **Before the agent's next run, the risk cap is whatever the feeder last set.** A stolen key has that cap and the contract's limits until then.
 - **The owner key is the root.** It can raise caps, unblock and upgrade the code. A multisig owner and a timelock on loosening are the next steps.
 - **Exit liquidity and delays are the venue's.** A 97%-utilized pool or LiNEAR's 4-epoch unbonding delays an exit the vault allows.
-- **Testnet.** The live vault runs on testnet against Burrow and LiNEAR testnet deployments, judged by mainnet data.
+- **Two networks.** The mainnet vault holds real funds in Rhea Lend and LiNEAR under small caps, and its agent key is public on purpose. The testnet demo vault runs the drill against Burrow and LiNEAR testnet deployments, judged by mainnet data.
+- **Public agent key.** Anyone can use the mainnet agent key within its three methods: supply within the caps, exit back into the vault, and burn its 0.25 NEAR gas allowance. The owner can replace the key.
