@@ -4,7 +4,7 @@
 
 Live page: https://nearnest.web3wagmi.com (opens on the mainnet vault; a header switch shows the testnet demo vault)
 JSON index of every endpoint and contract: https://nearnest.web3wagmi.com/api
-Source: README in the public repository linked from the page
+Source: https://github.com/edwardtay/nearnest
 
 ## Read state (HTTP, no keys)
 

@@ -291,7 +291,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api' || url.pathname === '/api/') {
       const [m, t] = await Promise.all([deployment('mainnet').catch(() => null), deployment('testnet').catch(() => null)]);
       return send(res, 200, {
-        name: 'NEARnest', guide: '/llms.txt',
+        name: 'NEARnest', guide: '/llms.txt', source: 'https://github.com/edwardtay/nearnest',
         summary: 'A yield agent on NEAR whose key is held to an on-chain policy. Read state over HTTP; act by signing NEAR transactions with your own account.',
         deployments: {
           mainnet: m && { vault: m.vault, owner: m.owner, risk_feeder: m.feeder, factory: m.factory ?? null, agent_key: m.agent_key, venues: { 'burrow-usdc': 'contract.main.burrow.near', linear: 'linear-protocol.near' }, usdc: intents.USDC_CONTRACT },
