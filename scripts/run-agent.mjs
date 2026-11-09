@@ -50,7 +50,10 @@ const s = loadState(net);
 // --vault <id>: any vault whose agent key is ours (the demo vault, or one a visitor made
 // through the factory). The same agent key is a function-call key on each of them.
 const VAULT = args.includes('--vault') ? args[args.indexOf('--vault') + 1] : s.vault;
-const nc = await near(net, { signers: { [VAULT]: s.agentKey.secret, [s.feeder]: s.signers[s.feeder] } });
+// Vaults the mainnet factory made use the factory's agent key; the published key is only for
+// the owner's own vault.
+const AGENT_KEY = s.factory && VAULT.endsWith(`.${s.factory}`) && s.factoryAgentKey ? s.factoryAgentKey : s.agentKey;
+const nc = await near(net, { signers: { [VAULT]: AGENT_KEY.secret, [s.feeder]: s.signers[s.feeder] } });
 const agent = await nc.account(VAULT);
 const feeder = await nc.account(s.feeder);
 const ex = NET[net].explorer;
@@ -252,7 +255,7 @@ async function runOnce() {
   let prev = {};
   try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
   const now = new Date().toISOString();
-  const out = { network: net, vault: VAULT, agent_key: s.agentKey.public, updated_at: now,
+  const out = { network: net, vault: VAULT, agent_key: AGENT_KEY.public, updated_at: now,
     last_run: { at: now, result, scenario: SC?.id ?? null }, mirror: MIRROR, moves: [...(prev.moves || []), ...log].slice(-50) };
   fs.writeFileSync(file, JSON.stringify(out, null, 2));
   console.log(`\nlogged ${log.length} move(s) and the run result to ${path.relative(ROOT, file)}`);

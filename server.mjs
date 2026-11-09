@@ -284,6 +284,7 @@ const server = http.createServer(async (req, res) => {
       const taken = await query(net, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
       return send(res, 200, { name: n, valid: true, free: !taken, account: `${n}.${dep.factory}` });
     }
+    if (url.pathname === '/api/agent-service') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-service.json')).catch(() => '{"started_at":null}'));
     if (url.pathname === '/api/dare') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-key-mainnet.json')).catch(() => '{}'));
     if (url.pathname === '/api/factory') { const net = netOf(url); return send(res, 200, await cached(`factory-${net}`, 15_000, () => factoryInfo(net))); }
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
@@ -361,3 +362,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, () => console.log(`nearnest on :${PORT} (${NET})`));
+
+// Hosted agent (NEARNEST_AGENT=1): a child process that wakes every 30 minutes, runs one
+// short process per vault, and sleeps. Restarted if it exits.
+if (process.env.NEARNEST_AGENT === '1') {
+  const { spawn } = await import('node:child_process');
+  const start = () => {
+    const p = spawn(process.execPath, [path.join(DIR, 'scripts', 'agent-service.mjs')], { stdio: 'inherit', env: process.env });
+    p.on('exit', (code) => { console.log(`[agent-service] exited ${code}; restarting in 60 s`); setTimeout(start, 60_000); });
+  };
+  start();
+}

@@ -766,6 +766,11 @@ async function refresh() {
   const btn = $('#refresh');
   btn.classList.add('spin');
   const [vault, plan, agent] = await Promise.allSettled([getJSON(withNet('/api/vault')), getJSON(withNet('/api/plan')), getJSON(withNet('/api/agent'))]);
+  getJSON('/api/agent-service').then((b) => {
+    $('#svc-s').textContent = NETWORK === 'mainnet' && b.finished_at
+      ? `Hosted agent: last round ${ago(b.finished_at)} over ${b.results.length} vault${b.results.length === 1 ? '' : 's'}, every ${b.every_min} min.`
+      : '';
+  }).catch(() => {});
   getJSON('/api/ai').then(renderAI).catch(() => { $('#ai-list').innerHTML = '<li class="loading">Could not read the proposals.</li>'; });
   btn.classList.remove('spin');
   if (vault.status === 'fulfilled') renderVault(state.vault = vault.value);

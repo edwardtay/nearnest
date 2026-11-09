@@ -4,6 +4,8 @@
   "type": "module",
   "license": "MIT",
   "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
     "near-api-js": "^5.1.1"
   }
 }
