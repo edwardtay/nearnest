@@ -1,0 +1,16 @@
+{
+  "network": "mainnet",
+  "vault": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
+  "agent_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
+  "updated_at": "2026-11-09T03:00:44.764Z",
+  "last_run": {
+    "at": "2026-11-09T03:00:44.764Z",
+    "result": "read failed, signed nothing: Sender fb10a8ba67ae2563bb36f165bf641c22449488867557e3dac34df82e6a685498 does not have enough balance 0.1 for operation costing 0.1509192506868025",
+    "scenario": null
+  },
+  "mirror": {
+    "burrow-usdc": "rhea-usdc",
+    "linear": "linear"
+  },
+  "moves": []
+}

@@ -67,7 +67,11 @@ function failureText(o) {
   }
   return null;
 }
-const fc = (method, a) => transactions.functionCall(method, a, 150n * TGAS, 0n);
+// Venue calls chain ft_transfer_call and callbacks, so they get 150 Tgas. The feeder's calls only
+// write state; 20 Tgas keeps the gas NEAR reserves up front (at a worst-case price, refunded
+// after) small enough for a feeder that holds 0.1 NEAR.
+const FEEDER_TGAS = { set_risk_cap: 20n, block_venue: 20n };
+const fc = (method, a) => transactions.functionCall(method, a, (FEEDER_TGAS[method] ?? 150n) * TGAS, 0n);
 
 /** Read the vault and plan its moves with the shared planner. */
 async function plan(report) {
