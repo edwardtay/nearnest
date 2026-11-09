@@ -7,6 +7,7 @@
      /api/scenario?id=  a what-if event run through the same policy and planner (read only)
      /api/ai            NEAR AI proposals: what the model proposed, what the policy let through, signature checks
      /api/ai/evidence?chat_id=  the exact request and response bytes a proposal's signature covers
+     /api/dare          the mainnet agent key, published on purpose: take the money if you can
      /api/fund/tokens   origins a vault can be funded from through NEAR Intents (1Click), with prices
      /api/fund/quote?asset=&amount=  a dry 1Click quote: that asset on its own chain -> NEAR USDC to the vault
    Only public account ids are read here (demo/deployment-*.json); keys never ship. */
@@ -216,6 +217,7 @@ const server = http.createServer(async (req, res) => {
       const taken = await query(NET, { request_type: 'view_account', account_id: `${n}.${dep.factory}` }).then(() => true, () => false);
       return send(res, 200, { name: n, valid: true, free: !taken, account: `${n}.${dep.factory}` });
     }
+    if (url.pathname === '/api/dare') return send(res, 200, await readFile(path.join(DIR, 'demo', 'agent-key-mainnet.json')).catch(() => '{}'));
     if (url.pathname === '/api/factory') return send(res, 200, await cached(`factory-${NET}`, 15_000, () => factoryInfo(NET)));
     if (url.pathname === '/api/drill') return send(res, 200, await readFile(path.join(DIR, 'demo', `attack-${NET}.json`)));
     if (url.pathname === '/api/agent') {

@@ -137,6 +137,24 @@
         </div>
       </div>
 
+      <div class="card dare" id="dare" hidden>
+        <div class="card-head"><h3>The agent's key is public. Take the money if you can.</h3><span class="badge">Mainnet</span></div>
+        <p class="fund-sub">This is the private key our AI agent signs with. The vault behind it holds real USDC and NEAR. Anyone may use it.</p>
+        <div class="keybox"><code id="dare-key">…</code><button class="btn-cmd" id="dare-copy" type="button">Copy key</button></div>
+        <div class="pair dare-pair">
+          <div><h4>What the key can do</h4><ul>
+            <li>Call <code>agent_supply</code>, <code>agent_withdraw</code> and <code>agent_claim_unstaked</code> on the vault.</li>
+            <li>Supply from the vault to Rhea Lend USDC or LiNEAR, within the caps, the cooldown and 6 moves a day.</li>
+            <li>Withdraw from those venues back into the vault at any time. Exits skip the rate limits.</li>
+            <li>Spend its gas allowance of 0.25 NEAR.</li></ul></div>
+          <div><h4>What the chain refuses</h4><ul>
+            <li>Sending funds to any other account or contract.</li>
+            <li><code>owner_withdraw</code>, adding keys, or changing the code. The vault has no full-access key.</li>
+            <li>Raising a cap or unblocking a venue. Only the owner, <code>web3wagmi.near</code>, can withdraw.</li></ul></div>
+        </div>
+        <p class="foot">Try it with near-cli: <code id="dare-cli"></code>. Every attempt is public: <a id="dare-watch" href="#">watch the vault's transactions</a>.</p>
+      </div>
+
       <div class="stats">
         <a class="stat" href="#yield"><span class="k">Best raw yield on NEAR</span><b id="st-best">…</b><span class="s" id="st-best-s"></span></a>
         <a class="stat" href="#yield"><span class="k">Venues the agent may use</span><b id="st-ok">…</b><span class="s" id="st-ok-s"></span></a>

@@ -163,6 +163,10 @@ cd .. && npm start             # http://localhost:8787
 
 The vault is an implicit account (its id is the hex of a one-time key) because Meteor Wallet blocks apps from deploying code or adding keys, so a named sub-account could not be set up from a wallet. The owner only sent NEAR to it. The one-time key deployed the same code as the testnet vault, made `web3wagmi.near` the owner, added the agent's function-call key and deleted itself in the same transaction, so the vault has no full-access key. Checks and links: [`demo/deployment-mainnet.json`](demo/deployment-mainnet.json). Fund from any chain now quotes into this vault.
 
+### The agent's key is public
+
+The mainnet agent's private key is published on the page and in [`demo/agent-key-mainnet.json`](demo/agent-key-mainnet.json), on purpose. The vault behind it holds real USDC and NEAR. Anyone holding the key can supply to Rhea Lend USDC or LiNEAR within the caps, cooldown and daily limit, withdraw from them back into the vault at any time, and spend its 0.25 NEAR gas allowance. NEAR refuses every other method and every other receiver before the transaction runs, and the contract refuses anything outside the owner's rules. Only `web3wagmi.near` can withdraw. The worst a key holder can do is grief: shuffle funds between the vault and the approved venues, use up the day's moves, or burn the gas allowance; the owner can then replace the key. Every attempt is public on [nearblocks](https://nearblocks.io/address/2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e).
+
 **Testnet:**
 
 | Role | Account |

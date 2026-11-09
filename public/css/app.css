@@ -317,3 +317,13 @@ svg use{pointer-events:none}
 #rules{grid-template-columns:max-content minmax(0,1fr)}
 #rules dd{min-width:0;overflow-wrap:break-word}
 .hexid{overflow-wrap:break-word;word-break:break-all}
+
+/* public agent key */
+.dare{border-color:var(--ink)}
+.keybox{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 12px;padding:10px 12px;border:2px solid var(--border-strong);border-radius:10px;background:#f8fafc}
+.keybox code{font:500 13px var(--mono);overflow-wrap:break-word;word-break:break-all;min-width:0;flex:1 1 280px}
+.dare-pair{margin:0 0 10px}
+.dare h4{margin:0 0 6px;font-size:14px}
+.dare ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink2)}
+.dare li{margin:3px 0;overflow-wrap:break-word}
+#dare-cli{word-break:break-all}

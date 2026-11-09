@@ -687,6 +687,22 @@ $('#copy-cmd').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText('node scripts/run-agent.mjs'); toast('Command copied'); } catch { toast('Copy failed'); }
 });
 
+// The mainnet agent key, published on purpose (demo/agent-key-mainnet.json).
+let dare = null;
+async function renderDare() {
+  const el = $('#dare');
+  if (NETWORK !== 'mainnet') { el.hidden = true; return; }
+  try { dare ||= await getJSON('/api/dare'); } catch { return; }
+  if (!dare.private_key) return;
+  el.hidden = false;
+  $('#dare-key').textContent = dare.private_key;
+  $('#dare-watch').href = `https://nearblocks.io/address/${dare.vault}`;
+  $('#dare-cli').textContent = `near contract call-function as-transaction ${dare.vault} agent_withdraw json-args '{"venue_id":"burrow-usdc","amount":"1000000"}' prepaid-gas '150 Tgas' attached-deposit '0 NEAR' sign-as ${dare.vault} network-config mainnet sign-with-plaintext-private-key --signer-public-key ${dare.public_key} --signer-private-key <the key above> send`;
+}
+$('#dare-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(dare?.private_key || ''); toast('Key copied'); } catch { toast('Copy failed'); }
+});
+
 function setNetwork(n) {
   NETWORK = n;
   try { localStorage.setItem('nearnest-net', n); } catch {}
@@ -697,6 +713,7 @@ function setNetwork(n) {
   scenCache?.clear?.();
   refresh();
   renderFeed();
+  renderDare();
 }
 document.querySelectorAll('#net-switch button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.net !== NETWORK) setNetwork(b.dataset.net); }));
 document.querySelectorAll('#net-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.net === NETWORK)));
@@ -706,5 +723,6 @@ route();
 if (!state.scenarios) getJSON('/api/scenarios').then((x) => { state.scenarios ??= x; renderFeed(); if (state.agent) renderMoves(state.agent); }).catch(() => {});
 getJSON('/api/drill').then((d) => { state.drill = d; renderDrill(d); renderFeed(); }).catch(() => {});
 loadScan().then(refresh);
+renderDare();
 setInterval(refresh, 30_000);
 setInterval(() => { tickLive(); tickCooldown(); }, 1000);

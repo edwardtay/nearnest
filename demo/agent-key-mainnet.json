@@ -1,0 +1,9 @@
+{
+  "network": "mainnet",
+  "vault": "2b2d2d4d5675f16ee97064a858d17e8eea546dc1a2358f63962a81fae9c88a3e",
+  "owner": "web3wagmi.near",
+  "public_key": "ed25519:A2hAyXj5MKVK34SpDiuQH3PLYFixd7S1PwZFbG1f3dud",
+  "private_key": "ed25519:52ZUaRCBziWzFkLCf1mJpM7TboZyvY42o5Mk53J99vB7dxiKjF1GjetQ54eJqfTxsp4ac4ageg6wRinrfCaWPYwu",
+  "published_at": "2026-11-09",
+  "note": "This is the NEARnest mainnet agent key, published on purpose. It is a function-call key limited to agent_supply, agent_withdraw and agent_claim_unstaked on the vault, with a 0.25 NEAR gas allowance. Funds can only move between the vault and the approved venues; only the owner can withdraw."
+}
