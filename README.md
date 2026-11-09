@@ -163,6 +163,7 @@ cd .. && npm start             # http://localhost:8787
 | Owner | `web3wagmi.near` |
 | Risk feeder | `fb10a8ba67ae2563bb36f165bf641c22449488867557e3dac34df82e6a685498` |
 | Setup | [one transaction](https://nearblocks.io/txns/F4AsUkFdDDj4FAEkXfZc9qJXSo4mEwk8AQ2YyJxFeoyb): deploy, `new_preset`, agent key added, setup key deleted |
+| Factory | [`nearnest.near`](https://nearblocks.io/address/nearnest.near): anyone creates `<name>.nearnest.near` in one call ([deploy](https://nearblocks.io/txns/3Tz9r8vWjuedvtJD1RnjEfvzJocuwR53XNo1wGb6vG9D)); its account keeps a maintenance key for redeploys and holds no vault funds |
 | Upgrade to v4 | [`update_contract` by the owner](https://nearblocks.io/txns/ABxcYLMaWa2JMFpkRDcM45pHyWc6RdB37DQpGK5RU6r3) |
 
 The vault is an implicit account (its id is the hex of a one-time key) because Meteor Wallet blocks apps from deploying code or adding keys, so a named sub-account could not be set up from a wallet. The owner only sent NEAR to it. The one-time key deployed the same code as the testnet vault, made `web3wagmi.near` the owner, added the agent's function-call key and deleted itself in the same transaction, so the vault has no full-access key. Checks and links: [`demo/deployment-mainnet.json`](demo/deployment-mainnet.json). Fund from any chain now quotes into this vault.

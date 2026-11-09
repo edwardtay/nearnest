@@ -40,5 +40,8 @@
       "tx": "https://nearblocks.io/txns/ABxcYLMaWa2JMFpkRDcM45pHyWc6RdB37DQpGK5RU6r3",
       "code_hash": "FJEwpDsz2tkJAFTjzayPeAkgSTpvdTbf2XxsdcK3DE3B"
     }
-  ]
+  ],
+  "factory": "nearnest.near",
+  "factory_agent_key": "ed25519:FeoCrAn4P2cbu6DRJvX5d9GML8gXtc3FXYoFs7i5TxCX",
+  "factory_setup": "https://nearblocks.io/txns/3Tz9r8vWjuedvtJD1RnjEfvzJocuwR53XNo1wGb6vG9D"
 }
