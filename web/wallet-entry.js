@@ -4,6 +4,8 @@ import { setupWalletSelector } from '@near-wallet-selector/core';
 import { setupModal } from '@near-wallet-selector/modal-ui';
 import { setupMeteorWallet } from '@near-wallet-selector/meteor-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
+import { actionCreators } from '@near-js/transactions';
+import { PublicKey } from '@near-js/crypto';
 
 let selector;
 let modal;
@@ -29,12 +31,13 @@ export async function signOut() {
 }
 
 const TGAS = 10n ** 12n;
-/** One transaction to receiverId: function calls, a NEAR transfer, or (mainnet setup) CreateAccount and a full-access AddKey. Amounts are yocto strings. */
+/** One transaction to receiverId: function calls, a NEAR transfer, or (mainnet setup) CreateAccount and a
+    full-access AddKey. Amounts are yocto strings. Wallet Selector v10 takes near-api-js actions. */
 export async function send(receiverId, calls) {
   const w = await selector.wallet();
-  const actions = calls.map((c) => (c.createAccount ? { type: 'CreateAccount' }
-    : c.addFullKey ? { type: 'AddKey', params: { publicKey: c.addFullKey, accessKey: { permission: 'FullAccess' } } }
-    : c.transfer ? { type: 'Transfer', params: { deposit: String(c.transfer) } }
-    : { type: 'FunctionCall', params: { methodName: c.method, args: c.args || {}, gas: String(BigInt(c.tgas || 100) * TGAS), deposit: String(c.deposit || '0') } }));
+  const actions = calls.map((c) => (c.createAccount ? actionCreators.createAccount()
+    : c.addFullKey ? actionCreators.addKey(PublicKey.from(c.addFullKey), actionCreators.fullAccessKey())
+    : c.transfer ? actionCreators.transfer(BigInt(c.transfer))
+    : actionCreators.functionCall(c.method, c.args || {}, BigInt(c.tgas || 100) * TGAS, BigInt(c.deposit || '0'))));
   return w.signAndSendTransaction({ receiverId, actions });
 }
