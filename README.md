@@ -214,6 +214,10 @@ server.mjs  app server and JSON endpoints (/api/scan, /api/vault, /api/plan, /ap
 - Policy caps reach the chain on the agent's next run, so a stolen key has the contract's caps until then. The risk feeder holds no funds and can run on its own.
 - The policy reads incidents from DefiLlama's hacks list, so a new exploit reaches the agent when DefiLlama records it. The risk feeder exists to block faster than that.
 
+## Other NEAR HACKATHON entry
+
+My second, independent entry is [Private Prompt Lab](https://github.com/edwardtay/private-prompt-lab) (Privacy & Private AI track): optimise a system prompt inside a NEAR AI Cloud TEE and check the hardware proof in the browser. The two projects share no code.
+
 ## Built with AI
 
 The contract, agent, scripts and page were written with Claude Code (Anthropic) under my direction, and idea selection was discussed with Codex (OpenAI). Every on-chain claim above links to a transaction you can check.
